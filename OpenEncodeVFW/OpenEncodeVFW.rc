@@ -1,0 +1,134 @@
+// Microsoft Visual C++ generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "afxres.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// English (United States) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_DIALOG1 DIALOGEX 0, 0, 316, 230
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "OpenEncodeVFW Configuration"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "OK",IDC_OK,204,210,50,14
+    PUSHBUTTON      "Cancel",IDC_CANCEL,258,210,50,14
+    RTEXT           "20000",IDC_RC_HIGH_LABEL,186,72,111,8
+    EDITTEXT        IDC_RC_VAL,198,36,48,12,ES_AUTOHSCROLL | ES_NUMBER
+    LTEXT           "1",IDC_RC_LOW_LABEL,18,72,96,8
+    LTEXT           "Bitrate (kbit/s)",IDC_RC_LABEL,18,36,144,8
+    COMBOBOX        IDC_RC_MODE,12,18,162,78,CBS_DROPDOWNLIST | CBS_SORT | WS_VSCROLL | WS_TABSTOP
+    CONTROL         "",IDC_RC_VAL_SLIDER,"msctls_trackbar32",TBS_BOTH | TBS_NOTICKS | WS_TABSTOP,12,54,288,18
+    GROUPBOX        "Main",IDC_STATIC,7,7,302,197
+    CONTROL         105,IDC_OPENCL_LOGO,"Static",SS_BITMAP,258,156,48,44
+    CONTROL         "CABAC",IDC_CABAC,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,180,90,39,10
+    CONTROL         "Use OpenCL for NV12 conversion",IDC_USE_OPENCL,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,180,114,122,10
+    LTEXT           "",IDC_BUILD_DATE,6,216,186,8
+    COMBOBOX        IDC_DEVICE_CB,198,18,102,30,CBS_DROPDOWNLIST | CBS_SORT | WS_VSCROLL | WS_TABSTOP
+    GROUPBOX        "Profile",IDC_PROFILE,12,84,72,54
+    CONTROL         "Baseline",IDC_PROF_BASE,"Button",BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,18,96,54,10
+    CONTROL         "Mainline",IDC_PROF_MAIN,"Button",BS_AUTORADIOBUTTON | WS_TABSTOP,18,108,54,10
+    GROUPBOX        "Level",IDC_STATIC,90,84,84,36
+    COMBOBOX        IDC_LEVEL_CB,96,102,72,69,CBS_DROPDOWNLIST | CBS_SORT | WS_VSCROLL | WS_TABSTOP
+    CONTROL         "High",IDC_PROF_HIGH,"Button",BS_AUTORADIOBUTTON,18,120,54,10
+    CONTROL         "Fwd ME adv. mode decision",IDC_USE_ME_AMD,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,180,102,120,10
+    CONTROL         "Force 16x16 MV skip",IDC_SKIP_MV16,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,222,90,84,10
+    CONTROL         "Send frame rate to VCE",IDC_FRAMERATE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,180,126,91,10
+    GROUPBOX        "Search Range X,Y ",IDC_STATIC,12,144,72,30
+    EDITTEXT        IDC_SEARCHRX,18,156,24,12,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_SEARCHRY,54,156,24,12,ES_AUTOHSCROLL | ES_NUMBER
+    CONTROL         "Blend",IDC_BLEND,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,180,138,33,10
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO
+BEGIN
+    IDD_DIALOG1, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 309
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 223
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// STRING
+//
+
+IDR_OPENCL_KERNELS      STRING                  "NV12_kernels.cl"
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "#include ""afxres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Bitmap
+//
+
+IDB_BITMAP1             BITMAP                  "OpenCL_Logo.bmp"
+#endif    // English (United States) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

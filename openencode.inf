@@ -1,0 +1,54 @@
+[version]
+signature="$CHICAGO$"
+
+[DefaultInstall]
+CopyFiles=OPENENC.Files.Inf,OPENENC.Files.Dll
+AddReg=OPENENC.Reg
+UpdateInis=OPENENC.INIs
+
+[DefaultUnInstall]
+DelFiles=OPENENC.Files.Dll,OPENENC.Files.Inf,OPENENC.Files.Ini
+DelReg=OPENENC.Reg
+UpdateInis=OPENENC.INIs.Del
+
+[SourceDisksNames]
+1="AMD OpenEncodeVFW video codec","",1
+
+[SourceDisksFiles]
+OPENENCODE.INF=1
+OPENENCODEVFW.DLL=1
+
+[DestinationDirs]
+OPENENC.Files.Inf=17
+OPENENC.Files.Dll=11
+OPENENC.Files.Ini=25
+
+[OPENENC.Files.Inf]
+OPENENCODE.INF
+
+[OPENENC.Files.Dll]
+OPENENCODEVFW.DLL
+
+[OPENENC.Files.Ini] 
+OPENENCODEVFW.INI
+
+; ********************** WARNING ********************
+; Using VIDC.H264 might override preinstalled codecs
+; ***************************************************
+[OPENENC.Reg]
+HKLM,SYSTEM\CurrentControlSet\Control\MediaResources\icm\VIDC.H264,Description,,"OpenEncodeVFW codec"
+HKLM,SYSTEM\CurrentControlSet\Control\MediaResources\icm\VIDC.H264,Driver,,"OPENENCODEVFW.DLL"
+HKLM,SYSTEM\CurrentControlSet\Control\MediaResources\icm\VIDC.H264,FriendlyName,,"OpenEncodeVFW codec"
+
+HKLM,"Software\Microsoft\Windows NT\CurrentVersion\drivers.desc",OPENENCODEVFW.DLL,,"OpenEncodeVFW codec"
+HKLM,"Software\Microsoft\Windows NT\CurrentVersion\Drivers32",VIDC.H264,,"OPENENCODEVFW.DLL"
+
+HKLM,Software\Microsoft\Windows\CurrentVersion\Uninstall\OpenEncode
+HKLM,Software\Microsoft\Windows\CurrentVersion\Uninstall\OpenEncode,DisplayName,,"OpenEncodeVFW codec (Remove Only)"
+HKLM,Software\Microsoft\Windows\CurrentVersion\Uninstall\OpenEncode,UninstallString,,"rundll.exe setupx.dll,InstallHinfSection DefaultUninstall 132 %17%\OPENENCODE.INF"
+
+[OPENENC.INIs]
+system.ini, drivers32,, "VIDC.H264=OPENENCODEVFW.DLL"
+
+[OPENENC.INIs.Del]
+system.ini, drivers32, "VIDC.H264=OPENENCODEVFW.DLL"
