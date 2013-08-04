@@ -199,7 +199,12 @@ DWORD CodecInst::CompressEnd(){
 	}*/
 	mCompressed_size = 0;
 	status = encodeDestroy(mOveContext);
-	delete [] mDeviceHandle.deviceInfo;
+
+	if(mDeviceHandle.deviceInfo)
+	{
+		delete [] mDeviceHandle.deviceInfo;
+		mDeviceHandle.deviceInfo = NULL;
+	}
 
 	if(prev) 
 	{
