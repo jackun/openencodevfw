@@ -136,6 +136,7 @@ public:
 	unsigned int mWidth;
 	unsigned int mHeight;
 	unsigned int mFormat;	//input format for compressing, output format for decompression. Also the bitdepth.
+	unsigned int mCompression;
 	
 	unsigned int mCompressed_size;
 	clConvert *mCLConvert;
@@ -343,9 +344,13 @@ public:
 	 *******************************************************************************
 	 */
 
-	bool yuvToNV12(const uint8 *fr, uint32 uiHeight, uint32 uiWidth, 
+	bool yuvToNV12(const uint8 *inData, uint32 uiHeight, uint32 uiWidth, 
+				   uint32 alignedSurfaceWidth, int8 *pBitstreamData);
+	bool yv12ToNV12(const uint8 *inData, uint32 uiHeight, uint32 uiWidth, 
 				   uint32 alignedSurfaceWidth, int8 *pBitstreamData);
 
+	bool nv12ToNV12Aligned(const uint8 *inData, uint32 uiHeight, uint32 uiWidth, 
+               uint32 alignedSurfaceWidth, int8 *pBitstreamData);
 	/** 
 	 *******************************************************************************
 	 *  @fn     encodeCreate

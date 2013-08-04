@@ -181,25 +181,19 @@ void CodecInst::Log(const wchar_t *psz_fmt, ...)
  *  @return bool : true if successful; otherwise false.
  *******************************************************************************
  */
-
-bool CodecInst::yuvToNV12(const uint8 *fr, uint32 uiHeight, uint32 uiWidth, 
+//Some hypothetical 12 bit YUV format
+bool CodecInst::yuvToNV12(const uint8 *inData, uint32 uiHeight, uint32 uiWidth, 
                uint32 alignedSurfaceWidth, int8 *pBitstreamData)
 {
     bool results=false;
-    uint8  * pUplane = NULL;
-    uint8  * pVplane = NULL;
+	const uint8 *fr = inData;
+    const uint8  * pUplane = NULL;
+    const uint8  * pVplane = NULL;
     uint8  * pUVrow = NULL;
     uint32     uiUVSize = (uiWidth*uiHeight)>>2;
     uint32     uiHalfHeight = uiHeight>>1;
     uint32     uiHalfWidth  = uiWidth>>1;
-
-    pUplane  = (uint8 *) malloc(uiUVSize);
-    pVplane  = (uint8 *) malloc(uiUVSize);
-    pUVrow   = (uint8 *) malloc(uiWidth);
-
-    /**************************************************************************/
-    /* read one NV12 frame                                                    */
-    /**************************************************************************/
+	
     if (fr)
     {
         /**********************************************************************/
@@ -209,8 +203,9 @@ bool CodecInst::yuvToNV12(const uint8 *fr, uint32 uiHeight, uint32 uiWidth,
 
         for (uint32 h=0; h<uiHeight; h++)
         {
-            //fread(pBuf, sizeof(int8), uiWidth, fr);
-			memcpy(pBuf, fr, sizeof(int8) * uiWidth);
+            //fread(pBuf, sizeof(uint8), uiWidth, fr);
+			memcpy(pBuf, fr, sizeof(uint8) * uiWidth);
+			fr += uiWidth;
             pBuf += alignedSurfaceWidth;
         }
 
@@ -223,18 +218,17 @@ bool CodecInst::yuvToNV12(const uint8 *fr, uint32 uiHeight, uint32 uiWidth,
         /* UV plane                                                           */
         /**********************************************************************/
         uint32 chromaWidth = uiHalfWidth;
-        //fread(pUplane, sizeof(int8), uiUVSize, fr);
-		memcpy(pUplane, fr, sizeof(int8) * uiUVSize);
-        //fread(pVplane, sizeof(int8), uiUVSize, fr);
-		memcpy(pVplane, fr, sizeof(int8) * uiUVSize);
+		pUplane = fr;
+		pVplane = fr + chromaWidth*uiHalfHeight;
+
         for (uint32 h=0; h<uiHalfHeight; h++)
         {
+			pUVrow = pBuf;
             for (uint32 i = 0; i < chromaWidth; ++i)
             {
                 pUVrow[i*2]     = pUplane[chromaWidth * h + i];
                 pUVrow[i*2 + 1] = pVplane[chromaWidth * h + i];
             }
-            memcpy(pBuf, pUVrow, uiWidth);
             pBuf += alignedSurfaceWidth;
         }
 
@@ -243,15 +237,98 @@ bool CodecInst::yuvToNV12(const uint8 *fr, uint32 uiHeight, uint32 uiWidth,
         /**********************************************************************/
         results = true;
     }
-    else
+	
+	return results;
+}
+
+bool CodecInst::yv12ToNV12(const uint8 *inData, uint32 uiHeight, uint32 uiWidth, 
+               uint32 alignedSurfaceWidth, int8 *pBitstreamData)
+{
+    bool results=false;
+	const uint8 *fr = inData;
+    const uint8  * pUplane = NULL;
+    const uint8  * pVplane = NULL;
+    uint8  * pUVrow = NULL;
+    uint32     uiUVSize = (uiWidth*uiHeight)>>2;
+    uint32     uiHalfHeight = uiHeight>>1;
+    uint32     uiHalfWidth  = uiWidth>>1;
+	
+    if (fr)
     {
-        return results;
+        /**********************************************************************/
+        /* Y plane                                                            */
+        /**********************************************************************/
+        uint8* pBuf = (uint8 *) pBitstreamData;
+
+        for (uint32 h=0; h<uiHeight; h++)
+        {
+            //fread(pBuf, sizeof(uint8), uiWidth, fr);
+			memcpy(pBuf, fr, sizeof(uint8) * uiWidth);
+			fr += uiWidth;
+            pBuf += alignedSurfaceWidth;
+        }
+
+        /**********************************************************************/
+        /* Align the Y plane before adding the U & V data.                    */
+        /* pBuf = (uint8 *)pBitstreamData + alignedSurfaceWidth *            */
+        /* alignedSurfaceHeight;                                              */
+        /**********************************************************************/
+        /**********************************************************************/
+        /* UV plane                                                           */
+        /**********************************************************************/
+        uint32 chromaWidth = uiHalfWidth;
+		pUplane = fr;
+		pVplane = fr + chromaWidth*uiHalfHeight;
+
+        for (uint32 h=0; h<uiHalfHeight; h++)
+        {
+			pUVrow = pBuf;
+            for (uint32 i = 0; i < chromaWidth; ++i)
+            {
+                pUVrow[i*2]     = pVplane[chromaWidth * h + i]; //V comes first
+                pUVrow[i*2 + 1] = pUplane[chromaWidth * h + i];
+            }
+            pBuf += alignedSurfaceWidth;
+        }
+
+        /**********************************************************************/
+        /* we have been successful in reading the file                        */
+        /**********************************************************************/
+        results = true;
     }
 	
-	free(pUplane);
-	free(pVplane);
-	free(pUVrow);
+	return results;
+}
 
+bool CodecInst::nv12ToNV12Aligned(const uint8 *inData, uint32 uiHeight, uint32 uiWidth, 
+               uint32 alignedSurfaceWidth, int8 *pBitstreamData)
+{
+    bool results=false;
+	const uint8 *fr = inData;
+    uint32     uiHalfHeight = uiHeight>>1;
+    uint32     uiHalfWidth  = uiWidth>>1;
+	
+    if (fr)
+    {
+        // Y plane
+        uint8* pBuf = (uint8 *) pBitstreamData;
+
+        for (uint32 h=0; h<uiHeight; h++)
+        {
+			memcpy(pBuf, fr, sizeof(uint8) * uiWidth);
+			fr += uiWidth;
+            pBuf += alignedSurfaceWidth;
+        }
+
+		// UV plane
+        for (uint32 h=0; h<uiHalfHeight; h++)
+        {
+			memcpy(pBuf, fr, uiWidth);
+			fr += uiWidth;
+            pBuf += alignedSurfaceWidth;
+        }
+        results = true;
+    }
     return results;
 }
 

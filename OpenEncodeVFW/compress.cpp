@@ -17,14 +17,14 @@ DWORD CodecInst::CompressQuery(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
 			return_badformat()
 		}
 	}*/
-	/*else if ( lpbiIn->biCompression == FOURCC_YV12 //decoder has different ideas what YV12 is than yuvToNV12() :S
-			|| lpbiIn->biCompression == FOURCC_NV12 //have to implement compression check before this, still needs alignment
+	else if ( lpbiIn->biCompression == FOURCC_YV12 //decoder has different ideas what YV12 is than yuvToNV12() :S
+			/*|| lpbiIn->biCompression == FOURCC_NV12*/ //have to implement compression check before this, still needs alignment
 			){
 		if ( lpbiIn->biBitCount != 12 ) {
 			return_badformat()
 		}
 
-	}*/ else {
+	} else {
 		return_badformat()
 	}
 
@@ -33,7 +33,7 @@ DWORD CodecInst::CompressQuery(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
 
 	/* We need x2 width/height although it gets aligned to 16 by 16
 	*/
-    if (mWidth % 2 || mHeight % 2 || mWidth > 1920 || mHeight > 1088)
+    if (mWidth % 2 || mHeight % 2)// || mWidth > 1920 || mHeight > 1088) //TODO get max w/h from caps
         return ICERR_BADFORMAT; //Should probably be ICERR_BADIMAGESIZE, but buggy apps :/
 
 	Log(L"CompressQuery OK \r\n");
@@ -98,7 +98,7 @@ DWORD CodecInst::CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
 	{
 		Log(L"Framerate: %d / %d %s\n", fps_num, fps_den, ( mConfigTable[L"sendFPS"]? L"(ignored)" : L""));
 		//Just ignore, seems to work regardless (though maybe less efficient?)
-		if(mConfigTable[L"sendFPS"] == 0)
+		if(mConfigTable[L"sendFPS"] == 1)
 		{
 			mConfigTable[L"encRateControlFrameRateNumerator"] = fps_num;
 			mConfigTable[L"encRateControlFrameRateDenominator"] = fps_den;
@@ -109,6 +109,7 @@ DWORD CodecInst::CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
     memset (pConfigCtrl, 0, sizeof (OvConfigCtrl));
 	encodeSetParam(pConfigCtrl, &mConfigTable);
 
+	mCompression = lpbiIn->biCompression;
 	mFormat = lpbiIn->biBitCount;
 	mLength = mWidth*mHeight*mFormat/8;
 	mCompressed_size = 0;
@@ -295,7 +296,7 @@ DWORD CodecInst::Compress(ICCOMPRESS* icinfo, DWORD dwSize) {
 		ret_val = ICERR_OK;
 	
 	//FIXME Keyframe flag
-	if (ret_val == ICERR_OK && (icinfo->lFrameNum % 250 == 0 || mParser->b_key) )
+	if (ret_val == ICERR_OK && (icinfo->lFrameNum % 250 == 0 /*|| mParser->b_key*/) )
 	{
 		//if(isH264iFrame(out))
 		*icinfo->lpdwFlags = AVIIF_KEYFRAME;
@@ -445,7 +446,6 @@ bool CodecInst::encodeOpen(OVEncodeHandle *encodeHandle,OPContextHandle oveConte
 	res = setEncodeConfig(encodeHandle->session,pConfig);
 	if (!res)
     {
-        Log(L"OVEncodeSendConfig returned error\n");
         return false;
     }
 
@@ -593,9 +593,12 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
 			else
 				RGBtoNV12 (inData, (uint8 *)mapPtr, mFormat/8, 1, pConfig->width, pConfig->height, alignedSurfaceWidth);
 		}
-		else if(mFormat == 12)
+		else if(mFormat == 12 && (mCompression == FOURCC_NV12 || mCompression == FOURCC_YV12))
 		{
-			convertFail = !yuvToNV12(inData, pConfig->height, pConfig->width, alignedSurfaceWidth, (int8 *)mapPtr);
+			if(mConfigTable[L"YV12AsNV12"] == 1 || mCompression == FOURCC_NV12)
+				convertFail = !nv12ToNV12Aligned(inData, pConfig->height, pConfig->width, alignedSurfaceWidth, (int8 *)mapPtr);
+			else
+				convertFail = !yv12ToNV12(inData, pConfig->height, pConfig->width, alignedSurfaceWidth, (int8 *)mapPtr);
 		}
 		else
 		{
@@ -741,58 +744,59 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
             {
 				//Copy to output buffer
 				
-				uint8 * p = (uint8*)pTaskDescriptionList[i].bitstream_data, *p_next;
-				uint8* end = ((uint8*)pTaskDescriptionList[i].bitstream_data) + pTaskDescriptionList[i].size_of_bitstream_data;
+				/// Getting keyframe from bitstream doesn't seem to work
+				//uint8 * p = (uint8*)pTaskDescriptionList[i].bitstream_data, *p_next;
+				//uint8* end = ((uint8*)pTaskDescriptionList[i].bitstream_data) + pTaskDescriptionList[i].size_of_bitstream_data;
 
-				//Log(L"Output: %d Format:%d  %08x %08x\n", buf_size, mFormat, ((int*)p)[0], ((int*)p)[1]);
+				////Log(L"Output: %d Format:%d  %08x %08x\n", buf_size, mFormat, ((int*)p)[0], ((int*)p)[1]);
 
-				//Parse some h264 bitstream for keyframe flag
-				
-				while( p < end - 3 )
-				{
-					if( p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x01 )
-					{
-						break;
-					}
-					p++;
-				}
+				////Parse some h264 bitstream for keyframe flag
+				//
+				//while( p < end - 3 )
+				//{
+				//	if( p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x01 )
+				//	{
+				//		break;
+				//	}
+				//	p++;
+				//}
 
-				/* Search end of NAL */
-				p_next = p + 3;
-				while( p_next < end - 3 )
-				{
-					if( p_next[0] == 0x00 && p_next[1] == 0x00 && p_next[2] == 0x01 )
-					{
-						break;
-					}
-					p_next++;
-				}
+				///* Search end of NAL */
+				//p_next = p + 3;
+				//while( p_next < end - 3 )
+				//{
+				//	if( p_next[0] == 0x00 && p_next[1] == 0x00 && p_next[2] == 0x01 )
+				//	{
+				//		break;
+				//	}
+				//	p_next++;
+				//}
 
-				/* Compute NAL size */
-				int i_size = (int)(p_next - p - 3);
+				///* Compute NAL size */
+				//int i_size = (int)(p_next - p - 3);
 
-				int b_flush = 0;
-				int b_start;
+				//int b_flush = 0;
+				//int b_start;
 
 
-				//FIXME Hmm, only SPS and/or PPS nal types
-				/* Nal start at p+3 with i_size length */
-				mParser->nal_decode(p+3, i_size < 2048 ? i_size : 2048 ); //get SPS
-				int i_type = mParser->nal.i_type;
-				mParser->parse(&b_start);
-				//mParser->nal_decode(p_next+3, i_size < 2048 ? i_size : 2048 );//get PPS
-				mParser->b_key = mParser->h264.b_key;
-				
-				if( b_start && mParser->b_slice )
-				{
-					b_flush = 1;
-					mParser->b_slice = 0;
-				}
+				////FIXME Hmm, only SPS and/or PPS nal types
+				///* Nal start at p+3 with i_size length */
+				//mParser->nal_decode(p+3, i_size < 2048 ? i_size : 2048 ); //get SPS
+				//int i_type = mParser->nal.i_type;
+				//mParser->parse(&b_start);
+				////mParser->nal_decode(p_next+3, i_size < 2048 ? i_size : 2048 );//get PPS
+				//mParser->b_key = mParser->h264.b_key;
+				//
+				//if( b_start && mParser->b_slice )
+				//{
+				//	b_flush = 1;
+				//	mParser->b_slice = 0;
+				//}
 
-				if( mParser->nal.i_type >= NAL_SLICE && mParser->nal.i_type <= NAL_SLICE_IDR )
-				{
-					mParser->b_slice = 1;
-				}
+				//if( mParser->nal.i_type >= NAL_SLICE && mParser->nal.i_type <= NAL_SLICE_IDR )
+				//{
+				//	mParser->b_slice = 1;
+				//}
 
 				//Log(L"nal %d: %d %d, Slice:%d\n", mFrameNum, i_type, mParser->nal.i_type, b_start);
 
