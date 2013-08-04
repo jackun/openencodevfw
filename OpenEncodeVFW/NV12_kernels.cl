@@ -3,7 +3,7 @@
 #define FLIP_RGB
 
 // Remove pitch kernel
-/*__kernel void removePitch(__global uchar* input,
+__kernel void removePitch(__global uchar* input,
                           __global uchar *output,
                           int video_pitch)
 {
@@ -14,7 +14,7 @@
     int pos_input = x + y * video_pitch;
     
     output[pos_output] = input[pos_input];
-}*/
+}
 
 
 // Convert NV12 format to RGBA
@@ -145,6 +145,11 @@ __kernel void RGBAtoNV12(__global uchar4 *input,
     float Y = (0.257f * R) + (0.504f * G) + (0.098f * B) + 16.f;
     float U = (0.439f * R) - (0.368f * G) - (0.071f * B) + 128.f;
     float V = -(0.148f * R) - (0.291f * G) + (0.439f * B) + 128.f;
+
+	//still too much red
+	//float Y = 0.299f * R + 0.587f * G + 0.114f * B;
+	/float U = -0.14713f * R - 0.28886f * G + 0.436f * B + 128;
+	//float V = 0.615f * R - 0.51499f * G - 0.10001f * B + 128;
 
     output[id.x + id.y * alignedWidth] = convert_uchar(Y > 255 ? 255 : Y);
     output[alignedWidth * height + (id.y >> 1) * alignedWidth + (id.x >> 1) * 2] = convert_uchar(U > 255 ? 255 : U);

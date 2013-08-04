@@ -845,7 +845,7 @@ fail:
  */
 bool CodecInst::encodeClose(OVEncodeHandle *encodeHandle)
 {
-	bool oveErr;
+	bool oveErr = false;
 	cl_int err = CL_SUCCESS;
 	OPMemHandle *inputSurfaces = encodeHandle->inputSurfaces;
 
