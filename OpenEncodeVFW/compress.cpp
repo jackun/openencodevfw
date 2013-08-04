@@ -18,7 +18,7 @@ DWORD CodecInst::CompressQuery(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
 		}
 	}*/
 	else if ( lpbiIn->biCompression == FOURCC_YV12 //decoder has different ideas what YV12 is than yuvToNV12() :S
-			/*|| lpbiIn->biCompression == FOURCC_NV12*/ //have to implement compression check before this, still needs alignment
+			|| lpbiIn->biCompression == FOURCC_NV12 //have to implement compression check before this, still needs alignment
 			){
 		if ( lpbiIn->biBitCount != 12 ) {
 			return_badformat()
