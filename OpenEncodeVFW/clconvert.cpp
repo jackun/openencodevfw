@@ -265,7 +265,6 @@ int clConvert::createKernels()
 		source = (char*)LoadResource( hmoduleVFW, hResource );
 	}
 	//LoadStringA(hmoduleVFW, IDR_OPENCL_KERNELS, source, SRCSIZE);
-
 	size_t sourceSize[] = {strlen(source)};
 	g_program = clCreateProgramWithSource(g_context,
 										1,

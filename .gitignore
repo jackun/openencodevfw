@@ -33,3 +33,6 @@
 *.vssscc
 *.sbr
 *.scc
+ipch
+Debug
+Release

@@ -3,7 +3,7 @@
 #define FLIP_RGB
 
 // Remove pitch kernel
-__kernel void removePitch(__global uchar* input,
+/*__kernel void removePitch(__global uchar* input,
                           __global uchar *output,
                           int video_pitch)
 {
@@ -14,7 +14,7 @@ __kernel void removePitch(__global uchar* input,
     int pos_input = x + y * video_pitch;
     
     output[pos_output] = input[pos_input];
-}
+}*/
 
 
 // Convert NV12 format to RGBA
@@ -151,31 +151,6 @@ __kernel void RGBAtoNV12(__global uchar4 *input,
     output[alignedWidth * height + (id.y >> 1) * alignedWidth + (id.x >> 1) * 2 + 1] = convert_uchar(V > 255 ? 255 : V);
 }
 
-
-/// Is it faster to convert Y and UV separately?
-// Convert only UV from RGBA format to NV12
-// Run over half width/height
-__kernel void RGBAtoNV12_UV(__global uchar4 *input,
-                        __global uchar *output)
-{
-    int2 id = (int2)(get_global_id(0), get_global_id(1));
-    
-    uint width = get_global_size(0) * 2;
-    uint height = get_global_size(1) * 2;
-
-    uchar4 rgba = input[id.x*2 + width * id.y*2];
-    
-    float R = convert_float(rgba.s0);
-    float G = convert_float(rgba.s1);
-    float B = convert_float(rgba.s2);
-
-    float V = (0.439f * R) - (0.368f * G) - (0.071f * B) + 128.f;
-    float U = -(0.148f * R) - (0.291f * G) + (0.439f * B) + 128.f;
-
-    output[width * height + id.y * width + id.x * 2] = convert_uchar(U > 255 ? 255 : U);
-    output[width * height + id.y * width + id.x * 2 + 1] = convert_uchar(V > 255 ? 255 : V);
-}
-
 // Convert RGB format to NV12. Colors seem a little off (oversaturated). Maybe it is just the h264 codec and blurring.
 __kernel void RGBtoNV12(__global uchar *input,
                         __global uchar *output,
@@ -204,31 +179,6 @@ __kernel void RGBtoNV12(__global uchar *input,
     output[id.x + id.y * alignedWidth] = convert_uchar(Y);
     output[alignedWidth * height + (id.y >> 1) * alignedWidth + (id.x >> 1) * 2] = convert_uchar(U > 255 ? 255 : U) ;
     output[alignedWidth * height + (id.y >> 1) * alignedWidth + (id.x >> 1) * 2 + 1] = convert_uchar(V > 255 ? 255 : V);
-}
-
-/// Is it faster to convert Y and UV separately?
-// Convert only UV from RGB format to NV12
-// Run over half width/height
-__kernel void RGBtoNV12_UV(__global uchar *input,
-                        __global uchar *output,
-						int alignedWidth)
-{
-    int2 id = (int2)(get_global_id(0), get_global_id(1));
-    
-    uint width = get_global_size(0);
-    uint height = get_global_size(1);
-
-    uchar3 rgb = vload3(id.x*2 + width * id.y*2, input);
-    
-    float R = convert_float(rgb.s2);
-    float G = convert_float(rgb.s1);
-    float B = convert_float(rgb.s0);
-
-    float V = (0.439f * R) - (0.368f * G) - (0.071f * B) + 128.f;
-    float U = -(0.148f * R) - (0.291f * G) + (0.439f * B) + 128.f;
-
-    input[alignedWidth * height + id.y * alignedWidth + id.x * 2] = convert_uchar(U > 255 ? 255 : U) ;
-    input[alignedWidth * height + id.y * alignedWidth + id.x * 2 + 1] = convert_uchar(V > 255 ? 255 : V);
 }
 
 __kernel void RGBBlend(__global uchar *input1,

@@ -183,37 +183,40 @@ DWORD CodecInst::CompressGetSize(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER l
 // release resources when compression is done
 
 DWORD CodecInst::CompressEnd(){
+
+	//TODO 
+	if(mCLConvert)
+	{
+		delete mCLConvert;
+		mCLConvert = NULL;
+	}
+
+	status = encodeClose(&mEncodeHandle);
+	//FIXME what to do?
+	/*if (status == false)
+	{
+		return 1;
+	}*/
+	mCompressed_size = 0;
+	status = encodeDestroy(mOveContext);
+	delete [] mDeviceHandle.deviceInfo;
+
+	if(prev) 
+	{
+		free(prev);
+		prev = NULL;
+	}
+
+	if(buffer2)
+	{
+		free(buffer2);
+		buffer2 = NULL;
+	}
+		
+	Log(L"CompressEnd\n");
+
 	if ( started  == 0x1337 ){
 
-		//TODO 
-		if(mCLConvert)
-		{
-			delete mCLConvert;
-			mCLConvert = NULL;
-		}
-
-		status = encodeClose(&mEncodeHandle);
-		//FIXME what to do?
-		/*if (status == false)
-		{
-			return 1;
-		}*/
-		mCompressed_size = 0;
-		status = encodeDestroy(mOveContext);
-		delete [] mDeviceHandle.deviceInfo;
-		if(prev) 
-		{
-			free(prev);
-			prev = NULL;
-		}
-
-		if(buffer2)
-		{
-			free(buffer2);
-			buffer2 = NULL;
-		}
-		
-		Log(L"CompressEnd\n");
 		displayFps(&mProfile, clDeviceID);
 	}
 	started = 0;
@@ -838,12 +841,14 @@ fail:
 bool CodecInst::encodeClose(OVEncodeHandle *encodeHandle)
 {
 	bool oveErr;
-	cl_int err;
+	cl_int err = CL_SUCCESS;
 	OPMemHandle *inputSurfaces = encodeHandle->inputSurfaces;
 
     for(int32 i=0; i<MAX_INPUT_SURFACE ;i++)
     {
-        err = clReleaseMemObject((cl_mem)inputSurfaces[i]);
+		err = CL_SUCCESS;
+		if(inputSurfaces[i])
+			err = clReleaseMemObject((cl_mem)inputSurfaces[i]);
         if(err != CL_SUCCESS)
         {
             Log(L"\nclReleaseMemObject returned error %d\n", err);
@@ -851,6 +856,7 @@ bool CodecInst::encodeClose(OVEncodeHandle *encodeHandle)
         }
     }
 
+	if(encodeHandle->clCmdQueue)
     err = clReleaseCommandQueue(encodeHandle->clCmdQueue);
 	if(err != CL_SUCCESS)
     {
@@ -858,12 +864,14 @@ bool CodecInst::encodeClose(OVEncodeHandle *encodeHandle)
         return false;
     }
 
+	if(encodeHandle->session)
     oveErr = OVEncodeDestroySession(encodeHandle->session);
     if(!oveErr)
     {
         Log(L"Error releasing OVE Session\n");
         return false;
     }
+	encodeHandle->session = NULL;
 	return true;
 }
 
@@ -890,6 +898,7 @@ bool CodecInst::encodeDestroy(OPContextHandle oveContext)
             return false;
         }
     }
+	oveContext = NULL;
     return true;
 }
 
