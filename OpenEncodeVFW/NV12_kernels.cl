@@ -1,4 +1,4 @@
-// In release build, AMD APP 2.8 SDK OR 13.6beta6 driver cl compiler complains about PAD() being undefined etc. :S
+// In release build, AMD APP 2.8 SDK OR 13.6beta6+ cl compiler complains about PAD() being undefined etc. :S
 //#define SATURATE_MANUALLY
 #define FLIP_RGB
 
@@ -148,7 +148,7 @@ __kernel void RGBAtoNV12(__global uchar4 *input,
 
 	//still too much red
 	//float Y = 0.299f * R + 0.587f * G + 0.114f * B;
-	/float U = -0.14713f * R - 0.28886f * G + 0.436f * B + 128;
+	//float U = -0.14713f * R - 0.28886f * G + 0.436f * B + 128;
 	//float V = 0.615f * R - 0.51499f * G - 0.10001f * B + 128;
 
     output[id.x + id.y * alignedWidth] = convert_uchar(Y > 255 ? 255 : Y);
@@ -219,3 +219,6 @@ __kernel void RGBBlend(__global uchar *input1,
     output[alignedWidth * height + (id.y >> 1) * alignedWidth + (id.x >> 1) * 2] = convert_uchar(U > 255 ? 255 : U) ;
     output[alignedWidth * height + (id.y >> 1) * alignedWidth + (id.x >> 1) * 2 + 1] = convert_uchar(V > 255 ? 255 : V);
 }
+
+
+#define ___NOTHING___ //AMD openCL frontend adds gibberish at the end :(

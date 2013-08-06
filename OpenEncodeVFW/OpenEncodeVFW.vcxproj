@@ -203,7 +203,6 @@ copy $(TargetPath) ..\OpenEncode32</Command>
     <None Include="OpenCL_Logo.bmp" />
     <None Include="openencode.def" />
     <None Include="ReadMe.txt" />
-    <None Include="string2.bin" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="bitstream.h" />

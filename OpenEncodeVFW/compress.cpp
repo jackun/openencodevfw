@@ -568,7 +568,11 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
 		/* Read the input file frame by frame                                 */
 		/**********************************************************************/
 
-        void* mapPtr = clEnqueueMapBuffer( encodeHandle->clCmdQueue,
+        void* mapPtr = NULL;
+
+		if(!mUseCLConv)
+		{
+			mapPtr = clEnqueueMapBuffer( encodeHandle->clCmdQueue,
                                             (cl_mem)inputSurface,
                                             CL_TRUE, //CL_FALSE,
                                             CL_MAP_READ | CL_MAP_WRITE,
@@ -579,9 +583,10 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
                                             &inMapEvt,
                                             &status);
 
-        status = clFlush(encodeHandle->clCmdQueue);
-		waitForEvent(inMapEvt);
-		status = clReleaseEvent(inMapEvt);
+			status = clFlush(encodeHandle->clCmdQueue);
+			waitForEvent(inMapEvt);
+			status = clReleaseEvent(inMapEvt);
+		}
 		
 		/**********************************************************************/
         /* Convert input buffer to something VCE can eat aka NV12             */
@@ -596,7 +601,8 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
 				//if(mConfigTable[L"blend"] == 1 && mFrameNum > 0)
 				//	convertFail = mCLConvert->blendAndEncode(buffer2, srcSize, inData, srcSize,(uint8*)mapPtr, hostPtrSize) != 0;
 				//else
-					convertFail = mCLConvert->encode(inData, srcSize, (uint8*)mapPtr, hostPtrSize) != 0;
+					//convertFail = mCLConvert->encode(inData, srcSize, (uint8*)mapPtr, hostPtrSize) != 0;
+				convertFail = mCLConvert->encode(inData, srcSize, (cl_mem)inputSurface) != 0;
 			}
 			else
 				RGBtoNV12 (inData, (uint8 *)mapPtr, mFormat/8, 1, pConfig->width, pConfig->height, alignedSurfaceWidth);
@@ -616,16 +622,19 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
 		
 		captureTimeStop(&mProfile, 2);
 
-        cl_event unmapEvent;
-        status = clEnqueueUnmapMemObject(encodeHandle->clCmdQueue,
-                                        (cl_mem)inputSurface,
-                                        mapPtr,
-                                        0,
-                                        NULL,
-                                        &unmapEvent);
-		status = clFlush(encodeHandle->clCmdQueue);
-		waitForEvent(unmapEvent);
-		status = clReleaseEvent(unmapEvent);
+		if(!mUseCLConv && mapPtr)
+		{
+			cl_event unmapEvent;
+			status = clEnqueueUnmapMemObject(encodeHandle->clCmdQueue,
+											(cl_mem)inputSurface,
+											mapPtr,
+											0,
+											NULL,
+											&unmapEvent);
+			status = clFlush(encodeHandle->clCmdQueue);
+			waitForEvent(unmapEvent);
+			status = clReleaseEvent(unmapEvent);
+		}
 
 		if(convertFail)
 			goto fail;

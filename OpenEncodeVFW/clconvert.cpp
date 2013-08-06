@@ -187,6 +187,7 @@ void clConvert::Cleanup_OpenCL()
 	if( g_blendBuffer ) {clReleaseMemObject( g_blendBuffer ); g_blendBuffer = NULL;}
     if( g_nv12_to_rgba_kernel ) {clReleaseKernel( g_nv12_to_rgba_kernel ); g_nv12_to_rgba_kernel = NULL;}
     if( g_rgba_to_nv12_kernel ) {clReleaseKernel( g_rgba_to_nv12_kernel ); g_rgba_to_nv12_kernel = NULL;}
+	if( g_rgb_to_nv12_kernel ) {clReleaseKernel( g_rgb_to_nv12_kernel ); g_rgb_to_nv12_kernel = NULL;}
 	if( g_rgb_blend_kernel ) {clReleaseKernel( g_rgb_blend_kernel ); g_rgb_blend_kernel = NULL;}
 	if( g_rgba_blend_kernel ) {clReleaseKernel( g_rgba_blend_kernel ); g_rgba_blend_kernel = NULL;}
     if( g_program ) {clReleaseProgram( g_program ); g_program = NULL;}
@@ -627,7 +628,7 @@ int clConvert::encodeInit()
 }
 
 //RGB to NV12
-int clConvert::encode(const uint8* srcPtr, uint32 srcSize, uint8* dstPtr, uint32 dstSize)
+int clConvert::encode(const uint8* srcPtr, uint32 srcSize, cl_mem dstBuffer)
 {
 	cl_int status = CL_SUCCESS;
 	size_t offset[] = {0, 0};
@@ -647,14 +648,16 @@ int clConvert::encode(const uint8* srcPtr, uint32 srcSize, uint8* dstPtr, uint32
 		0      /* event */);
 
 	CHECK_OPENCL_ERROR(status, "clEnqueueWriteBuffer() failed");
-								 
+	
+	g_outputBuffer = dstBuffer;
 	if(runRGBToNV12Kernel(globalThreads, localThreads, false))
 	{
 		mLog->Log(L"runRGB(A)ToNV12Kernel failed!\n");
 		return FAILURE;
 	}
+	g_outputBuffer = NULL;
 
-	status = clEnqueueReadBuffer(
+	/*status = clEnqueueReadBuffer(
 				g_cmd_queue, 
 				g_outputBuffer, 
 				CL_TRUE, 
@@ -664,9 +667,9 @@ int clConvert::encode(const uint8* srcPtr, uint32 srcSize, uint8* dstPtr, uint32
 				0, 
 				NULL, 
 				0);
-	CHECK_OPENCL_ERROR(status, "clEnqueueReadBuffer() failed");
+	CHECK_OPENCL_ERROR(status, "clEnqueueReadBuffer() failed");*/
 	
-
+	
 	return SUCCESS;
 }
 

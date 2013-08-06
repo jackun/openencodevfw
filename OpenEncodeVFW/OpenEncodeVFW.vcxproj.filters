@@ -54,11 +54,10 @@
       <Filter>Source Files</Filter>
     </None>
     <None Include="ReadMe.txt" />
-    <None Include="NV12_kernels.cl" />
-    <None Include="string2.bin">
+    <None Include="OpenCL_Logo.bmp">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="OpenCL_Logo.bmp">
+    <None Include="NV12_kernels.cl">
       <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>

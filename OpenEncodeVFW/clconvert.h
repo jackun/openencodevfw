@@ -76,7 +76,7 @@ public:
 	}
 
 	
-	int encode(const uint8* srcPtr, uint32 srcSize, uint8* dstPtr, uint32 dstSize);
+	int encode(const uint8* srcPtr, uint32 srcSize, cl_mem dstBuffer);
 	int blendAndEncode(const uint8* srcPtr1, uint32 srcSize1, 
 		const uint8* srcPtr2, uint32 srcSize2,
 		uint8* dstPtr, uint32 dstSize);
