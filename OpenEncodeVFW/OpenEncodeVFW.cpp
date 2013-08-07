@@ -25,8 +25,6 @@ CodecInst::CodecInst() : isVistaOrNewer(false),
 
 	mParser = new Parser();
 	mLog = new Logger;
-	//char bom[] = "\xFF\xFE";
-	//fwrite(bom, 1, 2, mLog);
 	Log(L"Init\n");
 
 	memset(&mDeviceHandle, 0, sizeof(OVDeviceHandle));
@@ -146,7 +144,7 @@ DWORD CodecInst::GetInfo(ICINFO* icinfo, DWORD dwSize) {
 	icinfo->dwSize          = sizeof(ICINFO);
 	icinfo->fccType         = ICTYPE_VIDEO;
 	icinfo->fccHandler		= FOURCC_OPEN;
-	icinfo->dwFlags			= VIDCF_FASTTEMPORALC | VIDCF_FASTTEMPORALD; //FIXME supported?
+	icinfo->dwFlags			= VIDCF_FASTTEMPORALC | VIDCF_FASTTEMPORALD;
 	icinfo->dwVersion		= 0x00010000;
 	icinfo->dwVersionICM	= ICVERSION;
 	memcpy(icinfo->szName,L"OpenEncodeVFW",sizeof(L"OpenEncodeVFW"));
@@ -203,7 +201,6 @@ bool CodecInst::yuvToNV12(const uint8 *inData, uint32 uiHeight, uint32 uiWidth,
 
         for (uint32 h=0; h<uiHeight; h++)
         {
-            //fread(pBuf, sizeof(uint8), uiWidth, fr);
 			memcpy(pBuf, fr, sizeof(uint8) * uiWidth);
 			fr += uiWidth;
             pBuf += alignedSurfaceWidth;
@@ -232,9 +229,6 @@ bool CodecInst::yuvToNV12(const uint8 *inData, uint32 uiHeight, uint32 uiWidth,
             pBuf += alignedSurfaceWidth;
         }
 
-        /**********************************************************************/
-        /* we have been successful in reading the file                        */
-        /**********************************************************************/
         results = true;
     }
 	
@@ -262,17 +256,11 @@ bool CodecInst::yv12ToNV12(const uint8 *inData, uint32 uiHeight, uint32 uiWidth,
 
         for (uint32 h=0; h<uiHeight; h++)
         {
-            //fread(pBuf, sizeof(uint8), uiWidth, fr);
 			memcpy(pBuf, fr, sizeof(uint8) * uiWidth);
 			fr += uiWidth;
             pBuf += alignedSurfaceWidth;
         }
 
-        /**********************************************************************/
-        /* Align the Y plane before adding the U & V data.                    */
-        /* pBuf = (uint8 *)pBitstreamData + alignedSurfaceWidth *            */
-        /* alignedSurfaceHeight;                                              */
-        /**********************************************************************/
         /**********************************************************************/
         /* UV plane                                                           */
         /**********************************************************************/
@@ -290,10 +278,6 @@ bool CodecInst::yv12ToNV12(const uint8 *inData, uint32 uiHeight, uint32 uiWidth,
             }
             pBuf += alignedSurfaceWidth;
         }
-
-        /**********************************************************************/
-        /* we have been successful in reading the file                        */
-        /**********************************************************************/
         results = true;
     }
 	

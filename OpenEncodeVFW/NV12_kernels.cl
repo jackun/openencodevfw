@@ -221,4 +221,5 @@ __kernel void RGBBlend(__global uchar *input1,
 }
 
 
-#define ___NOTHING___ //AMD openCL frontend adds gibberish at the end :(
+//AMD openCL frontend adds gibberish at the end, so add a comment here to ... comment it. 
+//
