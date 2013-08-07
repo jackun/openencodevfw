@@ -13,7 +13,7 @@ void CodecInst::prepareConfigMap()
 	//Custom app settings
 	mConfigTable.insert(pair<wstring,int32>(L"sendFPS", 0)); //Send proper video fps to encoder. Not sending allows video conversion with weird framerates
 	mConfigTable.insert(pair<wstring,int32>(L"blend", 0)); // Blend to frames, output at half framerate (ok, but how to? :D)(you may need to fix avi header)
-	mConfigTable.insert(pair<wstring,int32>(L"YV12AsNV12", 1));
+	mConfigTable.insert(pair<wstring,int32>(L"YV12AsNV12", 0));
 
 	/**************************************************************************/
 	/* EncodeSpecifications                                                   */  
