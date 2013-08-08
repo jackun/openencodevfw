@@ -1,9 +1,21 @@
 #include "stdafx.h"
 #include "log.h"
 
-Logger::Logger()
+Logger::Logger() : mLog(NULL)
 {
+}
+
+bool Logger::open()
+{
+	close();
 	mLog = fopen("openencode.log", "w, ccs=UNICODE");
+	return mLog != NULL;
+}
+
+void Logger::close()
+{
+	if(mLog) fclose(mLog);
+	mLog = NULL;
 }
 
 Logger::~Logger()
@@ -13,7 +25,7 @@ Logger::~Logger()
 
 void Logger::Log_internal(const wchar_t *psz_fmt, va_list arg)
 {
-	if(!mLog) mLog = fopen("openencode.log", "w, ccs=UNICODE");
+	if(!mLog) open();
 
 	if(mLog)
 	{

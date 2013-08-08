@@ -232,6 +232,8 @@ DWORD CodecInst::CompressEnd(){
 		mRaw = NULL;
 	}
 
+	if(mLog) mLog->close();
+
 	return ICERR_OK;
 }
 
