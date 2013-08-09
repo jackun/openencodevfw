@@ -157,7 +157,7 @@ DWORD CodecInst::CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
 
 	if(mUseCLConv)
 	{
-		mCLConvert = new clConvert((cl_context)mOveContext, clDeviceID, mEncodeHandle.clCmdQueue, mWidth, mHeight, mFormat / 8, mLog);
+		mCLConvert = new clConvert((cl_context)mOveContext, clDeviceID, mEncodeHandle.clCmdQueue, mWidth, mHeight, mFormat / 8, mLog, mConfigTable[L"SpeedyMath"]==1);
 		if(!mCLConvert->init())
 		{
 			Log(L"Failed to initialize OpenCL colorspace conversion!\n");
