@@ -34,7 +34,7 @@ DWORD CodecInst::CompressQuery(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
 	/* We need x2 width/height although it gets aligned to 16 by 16
 	*/
     if (mWidth % 2 || mHeight % 2)// || mWidth > 1920 || mHeight > 1088) //TODO get max w/h from caps
-        return ICERR_BADFORMAT; //Should probably be ICERR_BADIMAGESIZE, but buggy apps :/
+        return ICERR_BADFORMAT; //Should probably be ICERR_BADIMAGESIZE
 
 	Log(L"CompressQuery OK \r\n");
 	return (DWORD)ICERR_OK;
@@ -96,7 +96,7 @@ DWORD CodecInst::CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
 	
 	if(fps_den > 0 && fps_num>0)
 	{
-		Log(L"Framerate: %d / %d %s\n", fps_num, fps_den, ( mConfigTable[L"sendFPS"]? L"(ignored)" : L""));
+		Log(L"Framerate: %d / %d %s\n", fps_num, fps_den, ( mConfigTable[L"sendFPS"]==0? L"(ignored)" : L""));
 		//Just ignore, seems to work regardless (though maybe less efficient?)
 		if(mConfigTable[L"sendFPS"] == 1)
 		{
@@ -521,7 +521,6 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
 	
 	OPMemHandle		            inputSurface;
 	ove_session                 session=encodeHandle->session;
-
     OVresult  res = 0;
     OPEventHandle eventRunVideoProgram;
     

@@ -275,10 +275,12 @@ int clConvert::createKernels()
 	//free(source);
 	CHECK_OPENCL_ERROR(status, "clCreateProgramWithSource failed.");
 
-    std::string flagsStr("");
+    std::string flagsStr(""); //"-save-temps"
+	if(mOptimize)
+		flagsStr.append("-cl-single-precision-constant -cl-mad-enable -cl-fast-relaxed-math -cl-unsafe-math-optimizations");
 
     if(flagsStr.size() != 0)
-        std::cout << "Build Options are : " << flagsStr.c_str() << std::endl;
+        mLog->Log(L"Build Options are : %S\n", flagsStr.c_str());
     
 
     /* create a cl program executable for all the devices specified */
@@ -566,7 +568,7 @@ int clConvert::decodeInit()
 	// Create buffer to store the YUV image
     g_inputBuffer = clCreateBuffer(
                                 g_context, 
-                                CL_MEM_READ_WRITE,
+                                CL_MEM_READ_ONLY, //_WRITE,
                                 host_ptr_size, 
                                 NULL, 
                                 &statusCL);
@@ -597,20 +599,20 @@ int clConvert::encodeInit()
 	// Create buffer to store the YUV image
     g_inputBuffer = clCreateBuffer(
                                 g_context, 
-                                CL_MEM_READ_WRITE,
+                                CL_MEM_READ_ONLY, //_WRITE,
                                 input_size, 
                                 NULL, 
                                 &statusCL);
     CHECK_OPENCL_ERROR(statusCL , "clCreateBuffer(g_inputBuffer) failed!");
     
     // Create buffer to store the output
-    g_outputBuffer = clCreateBuffer(
+    /*g_outputBuffer = clCreateBuffer(
                     g_context, 
                     CL_MEM_READ_WRITE,
                     g_output_size,
                     NULL, 
                     &statusCL);
-    CHECK_OPENCL_ERROR(statusCL, "clCreateBuffer(g_outputBuffer) failed!");
+    CHECK_OPENCL_ERROR(statusCL, "clCreateBuffer(g_outputBuffer) failed!");*/
     
     g_blendBuffer = clCreateBuffer(
                                 g_context, 
@@ -637,17 +639,45 @@ int clConvert::encode(const uint8* srcPtr, uint32 srcSize, cl_mem dstBuffer)
 							 localThreads_rgba_to_nv12_kernel[1]};
 	
 	
-	status = clEnqueueWriteBuffer(g_cmd_queue,
+	/*status = clEnqueueWriteBuffer(g_cmd_queue,
 		g_inputBuffer,
-		CL_TRUE /* blocking_write */,
-		0 /* offset */,
+		CL_TRUE,
+		0,
 		srcSize, //iWidth * iHeight * bpp_bytes,
 		srcPtr,
-		0      /* num_events_in_wait_list */,
-		NULL   /* event_wait_list */,
-		0      /* event */);
+		0,
+		NULL,
+		0);
 
-	CHECK_OPENCL_ERROR(status, "clEnqueueWriteBuffer() failed");
+	CHECK_OPENCL_ERROR(status, "clEnqueueWriteBuffer() failed");*/
+	
+	cl_event inMapEvt;
+	void *mapPtr = clEnqueueMapBuffer( g_cmd_queue,
+                        (cl_mem)g_inputBuffer,
+                        CL_TRUE, //CL_FALSE,
+                        CL_MAP_WRITE,
+                        0,
+                        srcSize,
+                        0,
+                        NULL,
+                        &inMapEvt,
+                        &status);
+
+	status = clFlush(g_cmd_queue);
+	waitForEventAndRelease(&inMapEvt);
+
+	//copy to mapped buffer
+	memcpy(mapPtr, srcPtr, srcSize);
+
+	cl_event unmapEvent;
+	status = clEnqueueUnmapMemObject(g_cmd_queue,
+									g_inputBuffer,
+									mapPtr,
+									0,
+									NULL,
+									&unmapEvent);
+	status = clFlush(g_cmd_queue);
+	waitForEventAndRelease(&unmapEvent);
 	
 	g_outputBuffer = dstBuffer;
 	if(runRGBToNV12Kernel(globalThreads, localThreads, false))
@@ -673,7 +703,7 @@ int clConvert::encode(const uint8* srcPtr, uint32 srcSize, cl_mem dstBuffer)
 	return SUCCESS;
 }
 
-//RGB to NV12
+//Pointless until we can drop frames from output somehow, don't use
 int clConvert::blendAndEncode(const uint8* srcPtr1, uint32 srcSize1, 
 	const uint8* srcPtr2, uint32 srcSize2,
 	uint8* dstPtr, uint32 dstSize)
