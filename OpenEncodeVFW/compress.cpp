@@ -157,7 +157,9 @@ DWORD CodecInst::CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
 
 	if(mUseCLConv)
 	{
-		mCLConvert = new clConvert((cl_context)mOveContext, clDeviceID, mEncodeHandle.clCmdQueue, mWidth, mHeight, mFormat / 8, mLog, mConfigTable[L"SpeedyMath"]==1);
+		mCLConvert = new clConvert((cl_context)mOveContext, clDeviceID, mEncodeHandle.clCmdQueue, 
+			mWidth, mHeight, mFormat / 8, mLog, 
+			mConfigTable[L"SpeedyMath"]==1, mConfigTable[L"ColorspaceLimit"]==1);
 		if(!mCLConvert->init())
 		{
 			Log(L"Failed to initialize OpenCL colorspace conversion!\n");
@@ -800,6 +802,7 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
 				////FIXME Hmm, only SPS and/or PPS nal types
 				///* Nal start at p+3 with i_size length */
 				//mParser->nal_decode(p+3, i_size < 2048 ? i_size : 2048 ); //get SPS
+				//mParser->nal.p_payload = p+3;
 				//int i_type = mParser->nal.i_type;
 				//mParser->parse(&b_start);
 				////mParser->nal_decode(p_next+3, i_size < 2048 ? i_size : 2048 );//get PPS

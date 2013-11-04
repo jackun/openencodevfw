@@ -107,13 +107,13 @@ public:
 	Parser(): i_frame(0), i_data(0), 
 		b_eof(0), b_key(0), b_slice(0), b_hiprofile(0) 
 	{
-		nal.p_payload = (uint8*) malloc(MAX_DATA);
+		nal.p_payload = NULL;//(uint8*) malloc(MAX_DATA);
 		init();
 	}
 
 	~Parser()
 	{
-		free(nal.p_payload);
+		//free(nal.p_payload);
 		nal.p_payload = 0;
 	}
 

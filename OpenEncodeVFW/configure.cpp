@@ -15,6 +15,7 @@ void CodecInst::prepareConfigMap()
 	mConfigTable.insert(pair<wstring,int32>(L"blend", 0)); // Blend to frames, output at half framerate (ok, but how to? :D)(you may need to fix avi header)
 	mConfigTable.insert(pair<wstring,int32>(L"YV12AsNV12", 0));
 	mConfigTable.insert(pair<wstring,int32>(L"SpeedyMath", 1)); //Enable some OpenCL optimizations
+	mConfigTable.insert(pair<wstring,int32>(L"ColorspaceLimit", 1)); //Limit rgb between 16..239
 
 	/**************************************************************************/
 	/* EncodeSpecifications                                                   */  
@@ -730,6 +731,7 @@ static void DialogUpdate(HWND hwndDlg, CodecInst* pinst)
 	CheckDlgButton(hwndDlg, IDC_BLEND, pinst->mConfigTable[L"blend"]);
 	CheckDlgButton(hwndDlg, IDC_YV12ASNV12, pinst->mConfigTable[L"YV12AsNV12"]);
 	CheckDlgButton(hwndDlg, IDC_SPEEDY_MATH, pinst->mConfigTable[L"SpeedyMath"]);
+	CheckDlgButton(hwndDlg, IDC_CS_LIMIT, pinst->mConfigTable[L"ColorspaceLimit"]);
 
 	swprintf(temp, 1023, L"Build date: %S %S", __DATE__, __TIME__);
     SetDlgItemText(hwndDlg, IDC_BUILD_DATE, temp);
@@ -821,6 +823,9 @@ static BOOL CALLBACK ConfigureDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam,
 					break;
 				case IDC_SPEEDY_MATH:
 					pinst->mConfigTable[L"SpeedyMath"] = IsDlgButtonChecked(hwndDlg, IDC_SPEEDY_MATH);
+					break;
+				case IDC_CS_LIMIT:
+					pinst->mConfigTable[L"ColorspaceLimit"] = IsDlgButtonChecked(hwndDlg, IDC_CS_LIMIT);
 					break;
 				case IDC_PROF_BASE:
 					//TODO fix radio buttons in group control, how do to do in plain win32?

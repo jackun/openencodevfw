@@ -47,7 +47,7 @@ class clConvert
 public:
 
 
-	clConvert(cl_context ctx, cl_device_id dev, cl_command_queue cmdqueue, int width, int height, unsigned int _bpp_bytes, Logger *log, bool opt = true):
+	clConvert(cl_context ctx, cl_device_id dev, cl_command_queue cmdqueue, int width, int height, unsigned int _bpp_bytes, Logger *log, bool opt = true, bool limit = true):
 		g_context(ctx), deviceID(dev),
 		iWidth(width), oWidth(width), 
 		iHeight(height), oHeight(height), bpp_bytes(_bpp_bytes),
@@ -55,7 +55,7 @@ public:
 		g_nv12_to_rgb_kernel(NULL), g_rgb_to_nv12_kernel(NULL), g_rgb_blend_kernel(NULL), g_rgba_blend_kernel(NULL),
 		host_ptr(NULL), g_output_size(0), g_inputBuffer(NULL), g_outputBuffer(NULL), g_blendBuffer(NULL),
 		g_cmd_queue(cmdqueue), g_program(NULL), g_decoded_frame(NULL), mLog(log),
-		mOptimize(opt)
+		mOptimize(opt), mColSpaceLimit(limit)
 	{
 		localThreads_nv12_to_rgba_kernel[0] = 1;
 		localThreads_nv12_to_rgba_kernel[1] = 1;
@@ -117,6 +117,7 @@ private:
 	cl_device_id deviceID;// = 0;
 	Logger *mLog;
 	bool	mOptimize;
+	bool	mColSpaceLimit;
 
 	int setupCL();
 	int decodeInit();

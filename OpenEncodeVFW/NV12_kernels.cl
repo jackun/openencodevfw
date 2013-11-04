@@ -13,54 +13,70 @@
 #define RtoVCoeff	112.439f * 256 + 0.5f
 #define GtoVCoeff	-94.154f * 256 + 0.5f
 #define BtoVCoeff	-18.285f * 256 + 0.5f
+#define UpperLimit	235.0f/255.0f
 
 // Based on http://www.poynton.com/notes/colour_and_gamma/ColorFAQ.html#RTFToC30
 // I dunno, all pink
 float3 RGBtoYUV(float R, float G, float B)
 {
-    float Y = 16.f + (( RtoYCoeff * R + GtoYCoeff * G + BtoYCoeff * B) / 65536);
-    float U = 128.f + (( RtoUCoeff * R + GtoUCoeff * G + BtoUCoeff * B) / 65536);
-    float V = 128.f + (( RtoVCoeff * R + GtoVCoeff * G + BtoVCoeff * B) / 65536);
+	float Y = 16.f + (( RtoYCoeff * R + GtoYCoeff * G + BtoYCoeff * B) / 65536);
+	float U = 128.f + (( RtoUCoeff * R + GtoUCoeff * G + BtoUCoeff * B) / 65536);
+	float V = 128.f + (( RtoVCoeff * R + GtoVCoeff * G + BtoVCoeff * B) / 65536);
 	return (float3)(Y,U,V);
 }
 
 float3 RGBtoYUV_2(float R, float G, float B)
 {
-    float Y = (0.257f * R) + (0.504f * G) + (0.098f * B) + 16.f;
-    float V = (0.439f * R) - (0.368f * G) - (0.071f * B) + 128.f;
-    float U = -(0.148f * R) - (0.291f * G) + (0.439f * B) + 128.f;
+	//float Y = (0.257f * R) + (0.504f * G) + (0.098f * B) + 16.f;
+	//float V = (0.439f * R) - (0.368f * G) - (0.071f * B) + 128.f;
+	//float U = -(0.148f * R) - (0.291f * G) + (0.439f * B) + 128.f;
+#ifdef COLORSPACE_LIMIT
+	R = 16.f + R * UpperLimit;
+	G = 16.f + G * UpperLimit;
+	B = 16.f + B * UpperLimit;
+#endif
+	//http://softpixel.com/~cwright/programming/colorspace/yuv/ still reddish
+	float Y = R *  .299000f + G *  .587000f + B *  .114000f;
+	float U = R * -.168736f + G * -.331264f + B *  .500000f + 128.f;
+	float V = R *  .500000f + G * -.418688f + B * -.081312f + 128.f;
 
 	//#2
 	//float Y = 0.299f * R + 0.587f * G + 0.114f * B;
 	//float U = -0.14713f * R - 0.28886f * G + 0.436f * B + 128;
 	//float V = 0.615f * R - 0.51499f * G - 0.10001f * B + 128;
+	//float V = (R - Y) * 0.713 + 128;
+	//float U = (B - Y) * 0.564 + 128;
+
+	//float Scale_factor = 0.65f;
+	//U = (U - 128.f) * Scale_factor + 128.f;
+	//V = (V - 128.f) * Scale_factor + 128.f;
 	return (float3)(Y,U,V);
 }
 
 // Convert RGBA format to NV12
 __kernel void RGBAtoNV12(__global uchar4 *input,
-                        __global uchar *output,
+						__global uchar *output,
 						int alignedWidth)
 {
-    int2 id = (int2)(get_global_id(0), get_global_id(1));
-    
-    int width = get_global_size(0);
-    int height = get_global_size(1);
+	int2 id = (int2)(get_global_id(0), get_global_id(1));
+
+	int width = get_global_size(0);
+	int height = get_global_size(1);
 #ifdef FLIP_RGB
-    uchar4 rgba = input[id.x + width * (height - id.y - 1)];
+	uchar4 rgba = input[id.x + width * (height - id.y - 1)];
 #else
-    uchar4 rgba = input[id.x + width * id.y];
+	uchar4 rgba = input[id.x + width * id.y];
 #endif
-    
-    float R = convert_float(rgba.s0);
-    float G = convert_float(rgba.s1);
-    float B = convert_float(rgba.s2);
 
-    float3 YUV = RGBtoYUV_2(R, G, B);
+	float R = convert_float(rgba.s0);
+	float G = convert_float(rgba.s1);
+	float B = convert_float(rgba.s2);
 
-    output[id.x + id.y * alignedWidth] = convert_uchar(YUV.s0 > 255 ? 255 : YUV.s0); //Y
-    output[alignedWidth * height + (id.y >> 1) * alignedWidth + (id.x >> 1) * 2] = convert_uchar(YUV.s2 > 255 ? 255 : YUV.s2); //V
-    output[alignedWidth * height + (id.y >> 1) * alignedWidth + (id.x >> 1) * 2 + 1] = convert_uchar(YUV.s1 > 255 ? 255 : YUV.s1); //U
+	float3 YUV = RGBtoYUV_2(R, G, B);
+
+	output[id.x + id.y * alignedWidth] = convert_uchar(YUV.s0 > 255 ? 255 : YUV.s0); //Y
+	output[alignedWidth * height + (id.y >> 1) * alignedWidth + (id.x >> 1) * 2] = convert_uchar(YUV.s2 > 255 ? 255 : YUV.s2); //V
+	output[alignedWidth * height + (id.y >> 1) * alignedWidth + (id.x >> 1) * 2 + 1] = convert_uchar(YUV.s1 > 255 ? 255 : YUV.s1); //U
 }
 
 // Convert RGB format to NV12. Colors seem a little off (oversaturated).
