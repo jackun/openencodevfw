@@ -277,7 +277,7 @@ int clConvert::createKernels()
 
     std::string flagsStr(""); //"-save-temps"
 	if(mOptimize)
-		flagsStr.append("-cl-single-precision-constant -cl-mad-enable -cl-fast-relaxed-math -cl-unsafe-math-optimizations");
+		flagsStr.append("-cl-single-precision-constant -cl-mad-enable -cl-fast-relaxed-math -cl-unsafe-math-optimizations ");
 	if(mColSpaceLimit)
 		flagsStr.append("-DCOLORSPACE_LIMIT");
 
