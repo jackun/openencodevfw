@@ -29,8 +29,9 @@ If %ERRORLEVEL% == 0 (
 	copy OpenEncode.inf %windir%\SysWOW64\
 	copy OpenEncode32\OPENENCODEVFW.DLL %windir%\SysWOW64\
 
-	cd /d %windir%\system32\
-	rundll32 setupapi.dll,InstallHinfSection DefaultInstall 0 %windir%\system32\OpenEncode.inf
+	REM Don't do this, probably confuses 32bit uninstaller. Use different INF.
+	REM cd /d %windir%\system32\
+	REM rundll32 setupapi.dll,InstallHinfSection DefaultInstall 0 %windir%\system32\OpenEncode.inf
 
 	cd /d %windir%\SysWOW64\
 	rundll32 setupapi.dll,InstallHinfSection DefaultInstall 0 %windir%\SYSWOW64\OpenEncode.inf
