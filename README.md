@@ -5,7 +5,8 @@ VFW for AMD VCE h264 encoder
 
 Binaries: https://dl.dropboxusercontent.com/u/235773/OpenEncodeVFW-bin.7z
 
-== Installing
+Installing
+============
 
 Unpack the archive somewhere, open command prompt as administrator and go to unpacked folder. Run the `install.bat`
 If uninstaller fails its job, manually remove these registry keys:
