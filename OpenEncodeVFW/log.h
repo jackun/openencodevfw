@@ -5,10 +5,11 @@ class Logger
 {
 private:
 	FILE* mLog;
+	bool mWritelog;
 public:
-	Logger();
+	Logger(bool _log);
 	~Logger();
-
+	void enableLog(bool b);
 	bool open();
 	void close();
 

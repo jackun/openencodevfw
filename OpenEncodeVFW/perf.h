@@ -144,7 +144,7 @@ inline int64 myRdtsc()
 	_asm _emit 0x31;
 }
 #else /*_M_X64 */
-#define rdtsc() myRdtsc()
+#define  myRdtsc() __rdtsc()
 #endif /*_M_X64 */
 
 #endif

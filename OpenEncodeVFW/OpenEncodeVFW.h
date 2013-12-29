@@ -56,7 +56,7 @@ using namespace std;
 /* Registry */
 #define OVE_REG_KEY    HKEY_CURRENT_USER
 #define OVE_REG_PARENT L"Software"
-#ifdef _WIN64
+#ifdef _M_X64
 #define OVE_REG_CHILD  L"OpenEncodeVFW64"
 #else
 #define OVE_REG_CHILD  L"OpenEncodeVFW"

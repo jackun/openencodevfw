@@ -5,6 +5,8 @@
 // check if the codec can compress the given format to the desired format
 DWORD CodecInst::CompressQuery(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpbiOut){
 
+	if(mLog) mLog->enableLog(mConfigTable[L"Log"] == 1);
+
 	Log(L"Compression query: %d %x %dx%d\n", lpbiIn->biBitCount, lpbiIn->biCompression, lpbiIn->biWidth, lpbiIn->biHeight);
 	
 	// check for valid format and bitdepth
@@ -312,7 +314,7 @@ DWORD CodecInst::Compress(ICCOMPRESS* icinfo, DWORD dwSize) {
 	{
 		//if(isH264iFrame(out))
 		*icinfo->lpdwFlags = AVIIF_KEYFRAME;
-		Log(L"Keyframe: %d\n", icinfo->lFrameNum);
+		//Log(L"Keyframe: %d\n", icinfo->lFrameNum);
 	}
 	else
 		*icinfo->lpdwFlags = 0;

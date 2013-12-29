@@ -114,7 +114,7 @@ copy $(TargetPath) ..\OpenEncode32</Command>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>WinMM.Lib;psapi.lib;Shlwapi.lib;User32.lib;Gdi32.lib;OpenVideo64.lib;OpenCL.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>WinMM.lib;psapi.lib;Shlwapi.lib;User32.lib;Gdi32.lib;OpenVideo64.lib;OpenCL.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>openencode.def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
@@ -165,17 +165,18 @@ copy $(TargetPath) ..\OpenEncode32</Command>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>WinMM.lib;psapi.lib;Shlwapi.lib;User32.lib;Gdi32.lib;OpenVideo.lib;OpenCL.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>WinMM.lib;psapi.lib;Shlwapi.lib;User32.lib;Gdi32.lib;OpenVideo64.lib;OpenCL.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>openencode.def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OptimizeReferences>true</OptimizeReferences>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <AdditionalLibraryDirectories>$(AMDAPPSDKROOT)\lib\x86;$(AMDAPPSDKSAMPLESROOT)\lib\x86;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(AMDAPPSDKROOT)\lib\x86_64;$(AMDAPPSDKSAMPLESROOT)\lib\x86_64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
     </Link>
     <PostBuildEvent>
-      <Command>mkdir ..\OpenEncode32
-copy $(TargetPath) ..\OpenEncode32</Command>
+      <Command>mkdir ..\OpenEncode64
+copy $(TargetPath) ..\OpenEncode64</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

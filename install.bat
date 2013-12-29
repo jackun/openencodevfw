@@ -20,7 +20,13 @@ If %ERRORLEVEL% == 0 (
 ) ELSE (
 	del StringCheck.txt
 	del CheckOS.txt 
-	Echo "64 Bit Operating System detected, installing 64 bit and 32 bit OpenEncode versions"
+
+	echo ===
+	echo === 64 Bit Operating System detected, 
+	echo === but installing only 32 bit OpenEncode version.
+	echo === Edit install.bat if you need 64 bit too.
+	echo ===
+
 	copy OpenEncode.inf %windir%\system32\
 	REM No 64bit in the package yet
 	REM copy OpenEncode64\OPENENCODEVFW.DLL %windir%\system32\
@@ -38,3 +44,4 @@ If %ERRORLEVEL% == 0 (
 )
 
 chdir /d %OLDDIR%
+pause

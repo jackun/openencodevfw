@@ -24,7 +24,7 @@ CodecInst::CodecInst() : isVistaOrNewer(false),
 	readRegistry();
 
 	mParser = new Parser();
-	mLog = new Logger;
+	mLog = new Logger(mConfigTable[L"Log"] == 1);
 	Log(L"Init\n");
 
 	memset(&mDeviceHandle, 0, sizeof(OVDeviceHandle));
