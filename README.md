@@ -1,7 +1,7 @@
 openencodevfw
 =============
 
-VFW encoder for AMD VCE h264 encoder
+VFW encoder for AMD VCE h264 encoder. Usable with Virtualdub, Dxtory etc.
 
 https://github.com/jackun/openencodevfw/archive/master.zip
 
