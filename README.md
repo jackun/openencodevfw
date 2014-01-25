@@ -1,14 +1,16 @@
 openencodevfw
 =============
 
-VFW for AMD VCE h264 encoder
+VFW encoder for AMD VCE h264 encoder
 
-Binaries: https://dl.dropboxusercontent.com/u/235773/OpenEncodeVFW-bin.7z
+https://github.com/jackun/openencodevfw/archive/master.zip
 
 Installing
 ============
 
-Unpack the archive somewhere, open command prompt as administrator and go to unpacked folder `cd some\where\OpenEncodeVFW-bin`. Run the `install.bat`
+ * Unpack the archive somewhere, open command prompt as administrator by typing `cmd` to start menu or "Metro" and press SHIFT+CTRL+Enter or right click on the icon and click `Run as Administrator`. 
+ * Go to unpacked folder by typing into opened command prompt `cd some\where\OpenEncodeVFW-bin`. 
+ * Type `install.bat` and press enter to run the installer.
 
 Uninstalling
 ============
