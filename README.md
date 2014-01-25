@@ -5,6 +5,11 @@ VFW encoder for AMD VCE h264 encoder
 
 https://github.com/jackun/openencodevfw/archive/master.zip
 
+
+https://dl.dropboxusercontent.com/u/235773/OpenEncodeVFW-bin.7z with sample confs.
+
+Extra settings are saved to registry under `HKCU\Software\OpenEncodeVFW`
+
 Installing
 ============
 
