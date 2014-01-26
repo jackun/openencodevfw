@@ -2,7 +2,8 @@
 REM stolen from lagarith
 
 Set RegQry=HKLM\Hardware\Description\System\CentralProcessor\0
-set OLDDIR=%CD%
+REM set OLDDIR=%CD%
+pushd %~dp0%
 
 REG.exe Query %RegQry% > checkOS.txt
  
@@ -15,7 +16,7 @@ If %ERRORLEVEL% == 0 (
 	copy openencode.inf %windir%\system32\
 	copy OpenEncode32\OPENENCODEVFW.DLL %windir%\system32\
 
-	cd /d %windir%\system32\
+	pushd %windir%\system32\
 	rundll32 setupapi.dll,InstallHinfSection DefaultInstall 0 %windir%\system32\OpenEncode.inf
 ) ELSE (
 	del StringCheck.txt
@@ -39,9 +40,9 @@ If %ERRORLEVEL% == 0 (
 	REM cd /d %windir%\system32\
 	REM rundll32 setupapi.dll,InstallHinfSection DefaultInstall 0 %windir%\system32\OpenEncode.inf
 
-	cd /d %windir%\SysWOW64\
+	pushd %windir%\SysWOW64\
 	rundll32 setupapi.dll,InstallHinfSection DefaultInstall 0 %windir%\SYSWOW64\OpenEncode.inf
 )
 
-chdir /d %OLDDIR%
+popd
 pause
