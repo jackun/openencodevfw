@@ -13,6 +13,10 @@ Extra settings are saved to registry under `HKCU\Software\OpenEncodeVFW`
 Installing
 ============
 
+ * Unpack the archive somewhere, right click on `install.bat` and click `Run as Administrator`.
+
+If it complains about missing files, try the more manual version:
+
  * Unpack the archive somewhere, open command prompt as administrator by typing `cmd` to start menu or "Metro" and press SHIFT+CTRL+Enter or right click on the icon and click `Run as Administrator`. 
  * Go to unpacked folder by typing into opened command prompt `cd some\where\OpenEncodeVFW-bin`. 
  * Type `install.bat` and press enter to run the installer.
