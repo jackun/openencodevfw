@@ -161,10 +161,14 @@ DWORD CodecInst::CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
 
     if(mUseCLConv)
     {
-        if(mUseCPU && createCPUContext(mDeviceHandle.platform))
-            Log(L"Using CPU for RGB to NV12 conversion.\n");
-        else
-            return ICERR_INTERNAL;
+        if(mUseCPU) {
+            if(createCPUContext(mDeviceHandle.platform))
+                Log(L"Using CPU for RGB to NV12 conversion.\n");
+            else {
+                Log(L"Failed to create CPU OpenCL context.\n");
+                return ICERR_INTERNAL;
+            }
+        }
 
         mCLConvert = new clConvert(
             mUseCPU ? mCpuCtx : (cl_context)mOveContext,
