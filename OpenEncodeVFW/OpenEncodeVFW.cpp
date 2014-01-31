@@ -7,9 +7,9 @@ CRITICAL_SECTION ove_CS;
 HMODULE hmoduleVFW = 0;
 
 CodecInst::CodecInst() : isVistaOrNewer(false), 
-	mCLConvert(0), mRaw(0), mUseCLConv(true), mDialogUpdated(false), buffer2(0),
+	mCLConvert(0), mRaw(0), mUseCLConv(true), mUseCPU(false), mDialogUpdated(false), buffer2(0),
 	fps_den(0), fps_num(0), frame_total(0), mParser(0), mLog(0), prev(0), buffer(0), in(0), out(0),
-	clDeviceID(0) {
+	clDeviceID(0), mCpuCtx(0), mCpuDev(0) {
 /*#ifndef OPENENCODE_RELEASE
 	if ( started == 0x1337){
 		char msg[128];
@@ -570,6 +570,7 @@ void RGBtoNV12 (const uint8 * rgb,
 	uint8 * Y;
 	uint8 * UV;
 	//uint8 * V;
+	int x,y;
 
 	planeSize = yuvPitch * srcFrameHeight;
 	halfWidth = yuvPitch >> 1;
@@ -599,41 +600,67 @@ void RGBtoNV12 (const uint8 * rgb,
 #define yuvTo(s, x, y) s += x + y * yuvPitch
 #define yuvTo2(s, x, y) s += x + y * halfWidth
 
-	//Y plane
-	for ( int y = srcFrameHeight; y-- > 0; Y += padYUV, src += padRGB)
+	//#pragma omp parallel
 	{
-		src = rgb + (srcFrameWidth*(y)*rgbIncrement);
-		for ( int x = srcFrameWidth ; x-- > 0;  src +=rgbIncrement, Y++)
+	////#pragma omp section
+	{
+		//Y plane
+		//#pragma omp parallel for 
+		for ( y = srcFrameHeight - 1; y >= 0; y--)
 		{
-			// No need to saturate between 16 and 235
-			Y[0] = 16 + ((32768 + RtoYCoeff * src[0] + GtoYCoeff * src[1] + BtoYCoeff * src[2]) >> 16);
+			uint8 *lY;
+			if(!!flip)
+				lY = Y + yuvPitch * (srcFrameHeight - y);
+			else
+				lY = Y + yuvPitch * y;//, src += padRGB
+			const uint8 *lsrc = rgb + (srcFrameWidth*(y)*rgbIncrement);
+			for ( x = srcFrameWidth ; x > 0; x--)
+			{
+				lsrc += rgbIncrement;
+				// No need to saturate between 16 and 235
+				*(lY++) = 16 + ((32768 + RtoYCoeff * lsrc[0] + GtoYCoeff * lsrc[1] + BtoYCoeff * lsrc[2]) >> 16);
+			}
 		}
 	}
-
+	
 	//rgbTo(src, 0,-1); //rgbTo(src, 0, -srcFrameHeight); //.to(0, -src.height); //we return to the beginning of the plane.
 
 	//U and V planes
-	for ( int y = srcFrameHeight>>1 ; y-- > 0; UV += padYUV, src+=rgbIncrement*rgbPitch)
+	
+	//#pragma omp for 
+	for (y = 0; y < (srcFrameHeight>>1); y++)
 	{
-		src = rgb + (srcFrameWidth*(y*2)*rgbIncrement);
+		//UV += padYUV, src+=rgbIncrement*rgbPitch
+		uint8 *lUV;
+		if(!!flip)
+			lUV = UV + yuvPitch * ((srcFrameHeight>>1) - y - 1);
+		else
+			lUV = UV + yuvPitch * y;
 
-		for ( int x = srcFrameWidth>>1; x-- > 0; yuvTo2(UV, 2, 0), src+=rgbIncrement*2 )
+		const uint8 *lsrc = rgb + (srcFrameWidth*(y*2)*rgbIncrement);
+		
+		for (x = 0; x < (srcFrameWidth>>1); x++)
 		{
-			// No need to saturate between 16 and 240
-			U00 = 128 + ((32768 + RtoUCoeff * src[0] + GtoUCoeff * src[1] + BtoUCoeff * src[2]) >> 16);
-			U01 = 128 + ((32768 + RtoUCoeff * src[0+rgbIncrement] + GtoUCoeff * src[1+rgbIncrement] + BtoUCoeff * src[2+rgbIncrement]) >> 16);
-			U10 = 128 + ((32768 + RtoUCoeff * rgbAt(src, 0, 1) + GtoUCoeff * rgbAt(src, 1, 1) + BtoUCoeff * rgbAt(src, 2, 1)) >> 16);
-			U11 = 128 + ((32768 + RtoUCoeff * rgbAt(src, 0+rgbIncrement, 1) + GtoUCoeff * (rgbAt(src, 1+rgbIncrement, 1)) + BtoUCoeff * rgbAt(src, 2+rgbIncrement, 1)) >> 16);
-			UV[1] = (2 + U00 + U01 + U10 + U11) >> 2;
+			yuvTo2(lUV, 2, 0);
+			lsrc += rgbIncrement*2;
 
-			V00 = 128 + ((32768 + RtoVCoeff * src[0] + GtoVCoeff * src[1] + BtoVCoeff * src[2]) >> 16);
-			V01 = 128 + ((32768 + RtoVCoeff * src[0+rgbIncrement] + GtoVCoeff * src[1+rgbIncrement] + BtoVCoeff * src[2+rgbIncrement]) >> 16);
-			V10 = 128 + ((32768 + RtoVCoeff * rgbAt(src, 0, 1) + GtoVCoeff * rgbAt(src, 1, 1) + BtoVCoeff * rgbAt(src, 2, 1)) >> 16);
-			V11 = 128 + ((32768 + RtoVCoeff * rgbAt(src, 0+rgbIncrement, 1) + GtoVCoeff * rgbAt(src, 1+rgbIncrement, 1) + BtoVCoeff * rgbAt(src, 2+rgbIncrement, 1)) >> 16);
-			UV[0] = (2 + V00 + V01 + V10 + V11) >> 2; //UV[0] ... wat?
+			// No need to saturate between 16 and 240
+			U00 = 128 + ((32768 + RtoUCoeff * lsrc[0] + GtoUCoeff * lsrc[1] + BtoUCoeff * lsrc[2]) >> 16);
+			U01 = 128 + ((32768 + RtoUCoeff * lsrc[0+rgbIncrement] + GtoUCoeff * lsrc[1+rgbIncrement] + BtoUCoeff * lsrc[2+rgbIncrement]) >> 16);
+			U10 = 128 + ((32768 + RtoUCoeff * rgbAt(lsrc, 0, 1) + GtoUCoeff * rgbAt(lsrc, 1, 1) + BtoUCoeff * rgbAt(lsrc, 2, 1)) >> 16);
+			U11 = 128 + ((32768 + RtoUCoeff * rgbAt(lsrc, 0+rgbIncrement, 1) + GtoUCoeff * (rgbAt(lsrc, 1+rgbIncrement, 1)) + BtoUCoeff * rgbAt(lsrc, 2+rgbIncrement, 1)) >> 16);
+			lUV[1] = (2 + U00 + U01 + U10 + U11) >> 2;
+
+			V00 = 128 + ((32768 + RtoVCoeff * lsrc[0] + GtoVCoeff * lsrc[1] + BtoVCoeff * lsrc[2]) >> 16);
+			V01 = 128 + ((32768 + RtoVCoeff * lsrc[0+rgbIncrement] + GtoVCoeff * lsrc[1+rgbIncrement] + BtoVCoeff * lsrc[2+rgbIncrement]) >> 16);
+			V10 = 128 + ((32768 + RtoVCoeff * rgbAt(lsrc, 0, 1) + GtoVCoeff * rgbAt(lsrc, 1, 1) + BtoVCoeff * rgbAt(lsrc, 2, 1)) >> 16);
+			V11 = 128 + ((32768 + RtoVCoeff * rgbAt(lsrc, 0+rgbIncrement, 1) + GtoVCoeff * rgbAt(lsrc, 1+rgbIncrement, 1) + BtoVCoeff * rgbAt(lsrc, 2+rgbIncrement, 1)) >> 16);
+			lUV[0] = (2 + V00 + V01 + V10 + V11) >> 2; //UV[0] ... wat?
             
-            //UV[0] = -0.14713f * src[0] - 0.28886f * src[1] + 0.436f * src[2] + 128;
-            //UV[1] = 0.615f * src[0] - 0.51499f * src[1] - 0.10001f * src[2] + 128;
+			//UV[0] = -0.14713f * src[0] - 0.28886f * src[1] + 0.436f * src[2] + 128;
+			//UV[1] = 0.615f * src[0] - 0.51499f * src[1] - 0.10001f * src[2] + 128;
 		}
 	}
+	}
+
 }

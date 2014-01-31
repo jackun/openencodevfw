@@ -141,15 +141,20 @@ public:
 	unsigned int mCompressed_size;
 	clConvert *mCLConvert;
 	bool mUseCLConv;		// Use openCL on GPU for rgb-to-nv12 or just cpu
+	bool mUseCPU;			// Use openCL on CPU for RGB to NV12 conversion
 	bool mDialogUpdated;	// Used with configuration dialog to avoid loop-de-loops
 	
 	/* ICM_COMPRESS_FRAMES_INFO params */
-    int frame_total;
-    uint32 fps_num;
-    uint32 fps_den;
-	uint32 mFrameNum;
+	int frame_total;
+	uint32 fps_num;
+	uint32 fps_den;
+	uint32 mFrameNum; //may overflow, don't care (maybe VFW does)
 
 	cl_device_id clDeviceID;
+	
+	cl_context			mCpuCtx;
+	cl_device_id		mCpuDev;
+	cl_command_queue	mCpuCmdQueue;
 	
 	/**************************************************************************/
 	/* Create profile counters                                                */
@@ -208,6 +213,7 @@ public:
 	bool saveRegistry();
 
 	DeviceMap getDeviceList();
+	bool createCPUContext(cl_platform_id platform);
 
 	/** 
 	 *******************************************************************************

@@ -279,3 +279,40 @@ DeviceMap CodecInst::getDeviceList()
 
 	return devs;
 }
+
+bool CodecInst::createCPUContext(cl_platform_id platform)
+{
+	cl_int err;
+	cl_context_properties cps[3] = 
+	{
+		CL_CONTEXT_PLATFORM, 
+		(cl_context_properties)platform, 
+		0
+	};
+
+	mCpuCtx = clCreateContextFromType(cps,
+				CL_DEVICE_TYPE_CPU,
+				NULL,
+				NULL,
+				&err);
+
+	if(err != CL_SUCCESS) {
+		Log(L"Could not create CPU CL context. Error: %d.\n", err);
+		return false;
+	}
+
+	cl_uint count = 1;
+	err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 1, &mCpuDev, &count);
+	if(err != CL_SUCCESS || count == 0){
+		Log(L"Could not get CPU device id. Error: %d.\n", err);
+		return false;
+	}
+
+	mCpuCmdQueue = clCreateCommandQueue(mCpuCtx, mCpuDev, 0, &err);
+	if(err != CL_SUCCESS) {
+		Log(L"\nCreate command queue failed! Error : %d\n", err);
+		return false;
+	}
+	//clReleaseContext(context);
+	return true;
+}

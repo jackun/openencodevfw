@@ -598,6 +598,7 @@ int clConvert::encodeInit()
 	oAlignedWidth = ((iWidth + (256 - 1)) & ~(256 - 1));
     g_output_size = oAlignedWidth * oHeight * 3 / 2;
     
+	//TODO Use host ptr?
 	// Create buffer to store the YUV image
     g_inputBuffer = clCreateBuffer(
                                 g_context, 
@@ -640,7 +641,7 @@ int clConvert::encode(const uint8* srcPtr, uint32 srcSize, cl_mem dstBuffer)
 	size_t localThreads[] = {localThreads_rgba_to_nv12_kernel[0],
 							 localThreads_rgba_to_nv12_kernel[1]};
 	
-	
+
 	/*status = clEnqueueWriteBuffer(g_cmd_queue,
 		g_inputBuffer,
 		CL_TRUE,

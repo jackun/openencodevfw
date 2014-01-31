@@ -35,8 +35,10 @@
 #define IDC_YV12ASNV12                  1032
 #define IDC_SPEEDY_MATH                 1033
 #define IDC_CS_LIMIT                    1034
-#define IDC_CS_LIMIT2                   1035
 #define IDC_LOG                         1035
+#define IDC_USE_OPENCL2                 1036
+#define IDC_IDR                         1037
+#define IDC_RC_LABEL2                   1038
 
 // Next default values for new objects
 // 

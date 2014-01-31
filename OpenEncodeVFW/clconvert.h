@@ -47,7 +47,9 @@ class clConvert
 public:
 
 
-	clConvert(cl_context ctx, cl_device_id dev, cl_command_queue cmdqueue, int width, int height, unsigned int _bpp_bytes, Logger *log, bool opt = true, bool limit = true):
+	clConvert(cl_context ctx, cl_device_id dev, cl_command_queue cmdqueue, 
+			int width, int height, unsigned int _bpp_bytes, Logger *log, 
+			bool opt = true, bool limit = true):
 		g_context(ctx), deviceID(dev),
 		iWidth(width), oWidth(width), 
 		iHeight(height), oHeight(height), bpp_bytes(_bpp_bytes),

@@ -15,8 +15,9 @@ void CodecInst::prepareConfigMap()
 	mConfigTable.insert(pair<wstring,int32>(L"blend", 0)); // Blend to frames, output at half framerate (ok, but how to? :D)(you may need to fix avi header)
 	mConfigTable.insert(pair<wstring,int32>(L"YV12AsNV12", 0));
 	mConfigTable.insert(pair<wstring,int32>(L"SpeedyMath", 1)); //Enable some OpenCL optimizations
-	mConfigTable.insert(pair<wstring,int32>(L"ColorspaceLimit", 1)); //Limit rgb between 16..239
+	mConfigTable.insert(pair<wstring,int32>(L"ColorspaceLimit", 0)); //Limit rgb between 16..239
 	mConfigTable.insert(pair<wstring,int32>(L"Log", 0));
+	mConfigTable.insert(pair<wstring,int32>(L"IDRframes", 250)); //encIDRPeriod?
 
 	/**************************************************************************/
 	/* EncodeSpecifications                                                   */  
@@ -25,7 +26,7 @@ void CodecInst::prepareConfigMap()
 	mConfigTable.insert(pair<wstring,int32>(L"pictureWidth", 176)); 
 	mConfigTable.insert(pair<wstring,int32>(L"EncodeMode", 1)); 
 	mConfigTable.insert(pair<wstring,int32>(L"level", 41)); 
-	mConfigTable.insert(pair<wstring,int32>(L"profile", 77)); // 66 -base, 77 - main and maybe 100 - high
+	mConfigTable.insert(pair<wstring,int32>(L"profile", 77)); // 66 -base, 77 - main, 100 - high
 	mConfigTable.insert(pair<wstring,int32>(L"pictureFormat", 1)); // 1 - NV12
 	mConfigTable.insert(pair<wstring,int32>(L"requestedPriority", 1)); 
 	
@@ -100,38 +101,40 @@ void CodecInst::prepareConfigMap()
 	mConfigTable.insert(pair<wstring,int32>(L"useFmeInterpolUV", 0)); 
 	mConfigTable.insert(pair<wstring,int32>(L"enc16x16CostAdj", 0)); 
 	mConfigTable.insert(pair<wstring,int32>(L"encSkipCostAdj", 0)); 
-    mConfigTable.insert(pair<wstring,int32>(L"encForce16x16skip", 0)); 
+	mConfigTable.insert(pair<wstring,int32>(L"encForce16x16skip", 0)); 
 
 }
 
 bool CodecInst::readRegistry()
 {
 	HKEY    hKey;
-    DWORD   i_size;
-    int32     i;
+	DWORD   i_size;
+	int32     i;
 
-    if (RegOpenKeyEx(OVE_REG_KEY, OVE_REG_PARENT L"\\" OVE_REG_CHILD, 0, KEY_READ, &hKey) != ERROR_SUCCESS)
-    {
-        return false;
-    }
+	if (RegOpenKeyEx(OVE_REG_KEY, OVE_REG_PARENT L"\\" OVE_REG_CHILD, 0, KEY_READ, &hKey) != ERROR_SUCCESS)
+	{
+		return false;
+	}
 
-    EnterCriticalSection(&ove_CS);
+	EnterCriticalSection(&ove_CS);
 
-    /* Read all named params */
+	/* Read all named params */
 	std::map<std::wstring, int32>::iterator it = mConfigTable.begin();
-    for(; it != mConfigTable.end(); it++)
-    {
-        i_size = sizeof(int32);
+	for(; it != mConfigTable.end(); it++)
+	{
+		i_size = sizeof(int32);
 		if (RegQueryValueEx(hKey, it->first.c_str(), 0, 0, (LPBYTE)&i, &i_size) == ERROR_SUCCESS)
 			it->second = i;
-    }
+	}
 
 	i_size = sizeof(int32);
 	if (RegQueryValueEx(hKey, L"useCLConversion", 0, 0, (LPBYTE)&i, &i_size) == ERROR_SUCCESS)
 		mUseCLConv = (i == 1);
+	if (RegQueryValueEx(hKey, L"useCLonCPU", 0, 0, (LPBYTE)&i, &i_size) == ERROR_SUCCESS)
+		mUseCPU = (i == 1);
 
-    LeaveCriticalSection(&ove_CS);
-    RegCloseKey(hKey);
+	LeaveCriticalSection(&ove_CS);
+	RegCloseKey(hKey);
 
 	return true;
 }
@@ -139,71 +142,73 @@ bool CodecInst::readRegistry()
 bool CodecInst::saveRegistry()
 {
 	HKEY    hKey;
-    DWORD   dwDisposition;
-    int32     i;
+	DWORD   dwDisposition;
+	int32     i;
 	LSTATUS s;
 
-    if (RegCreateKeyEx(OVE_REG_KEY, OVE_REG_PARENT L"\\" OVE_REG_CHILD, 0, OVE_REG_CLASS, REG_OPTION_NON_VOLATILE, KEY_WRITE, 0, &hKey, &dwDisposition) != ERROR_SUCCESS)
-        return false;
+	if (RegCreateKeyEx(OVE_REG_KEY, OVE_REG_PARENT L"\\" OVE_REG_CHILD, 0, OVE_REG_CLASS, REG_OPTION_NON_VOLATILE, KEY_WRITE, 0, &hKey, &dwDisposition) != ERROR_SUCCESS)
+		return false;
 
-    EnterCriticalSection(&ove_CS);
+	EnterCriticalSection(&ove_CS);
 
-    /* Save all integers */
-    std::map<std::wstring, int32>::iterator it = mConfigTable.begin();
-    for(; it != mConfigTable.end(); it++)
+	/* Save all integers */
+	std::map<std::wstring, int32>::iterator it = mConfigTable.begin();
+	for(; it != mConfigTable.end(); it++)
 		s = RegSetValueEx(hKey, it->first.c_str(), 0, REG_DWORD, (LPBYTE)&it->second, sizeof(int32));
 
 	i = mUseCLConv ? 1 : 0;
 	RegSetValueEx(hKey, L"useCLConversion", 0, REG_DWORD, (LPBYTE)&i, sizeof(int));
+	i = mUseCPU ? 1 : 0;
+	RegSetValueEx(hKey, L"useCLonCPU", 0, REG_DWORD, (LPBYTE)&i, sizeof(int));
 
-    //RegSetValueEx(hKey, L"StringKey", 0, REG_SZ, (LPBYTE)L"Value", wcslen(L"Value") + 1);
-    LeaveCriticalSection(&ove_CS);
-    RegCloseKey(hKey);
+	//RegSetValueEx(hKey, L"StringKey", 0, REG_SZ, (LPBYTE)L"Value", wcslen(L"Value") + 1);
+	LeaveCriticalSection(&ove_CS);
+	RegCloseKey(hKey);
 	return true;
 }
 
 bool CodecInst::readConfigFile(int8 *fileName, OvConfigCtrl *pConfig,
-                    std::map<std::wstring,int32>* pConfigTable)
+					std::map<std::wstring,int32>* pConfigTable)
 {
-    wchar_t name[1000];
-    int32 index;
-    int32 value;
+	wchar_t name[1000];
+	int32 index;
+	int32 value;
 
-    std::wifstream file;
-    file.open(fileName);
+	std::wifstream file;
+	file.open(fileName);
 	
-    if (!file)
-    {
-        printf("Error in reading the configuration file: %s\n", fileName);
+	if (!file)
+	{
+		printf("Error in reading the configuration file: %s\n", fileName);
 		wchar_t msg[MAX_PATH + 128];
 		swprintf_s(msg, MAX_PATH + 128, L"Error in reading the configuration file: %s", fileName);
 		MessageBox (HWND_DESKTOP, msg, L"Error", MB_OK | MB_ICONEXCLAMATION);
-        return false;
-    }
+		return false;
+	}
 
-    std::wstring line;
+	std::wstring line;
 	map<wstring, int32>::iterator itMap;
 	
-    while (std::getline(file, line))
-    {
-        std::wstring temp = line;
+	while (std::getline(file, line))
+	{
+		std::wstring temp = line;
 		index = 0;
-   	    swscanf_s(line.c_str(), L"%s %d", name, &value);
+		swscanf_s(line.c_str(), L"%s %d", name, &value);
 		itMap = pConfigTable->find(name);
 		if(itMap != pConfigTable->end())
 		{
-		    itMap->second = value;
+			itMap->second = value;
 		}
 	
-    }
+	}
 
 	/**************************************************************************/
-    /* Set user specified configuratin                                        */
+	/* Set user specified configuratin                                        */
 	/**************************************************************************/
-    encodeSetParam(pConfig, pConfigTable);
+	encodeSetParam(pConfig, pConfigTable);
 
-    file.close();
-    return true;
+	file.close();
+	return true;
 }
 
 /** 
@@ -221,7 +226,7 @@ void CodecInst::encodeSetParam(OvConfigCtrl *pConfig, map<wstring,int32>* pConfi
 {
 
 	/**************************************************************************/
-    /* fill-in the general configuration structures                           */
+	/* fill-in the general configuration structures                           */
 	/**************************************************************************/
 	map<wstring,int32> configTable = (map<wstring,int32>)*pConfigTable;
 	pConfig->height									= configTable[L"pictureHeight"];
@@ -331,314 +336,306 @@ void CodecInst::encodeSetParam(OvConfigCtrl *pConfig, map<wstring,int32>* pConfi
 bool CodecInst::setEncodeConfig(ove_session session, OvConfigCtrl *pConfig)
 {
 	uint32                    numOfConfigBuffers = 4;
-    OVE_CONFIG                      configBuffers[4];
+	OVE_CONFIG                      configBuffers[4];
 	OVresult res = 0;
 
 	/**************************************************************************/
-    /* send configuration values for this session                             */
+	/* send configuration values for this session                             */
 	/**************************************************************************/
-    configBuffers[0].config.pPictureControl     = &(pConfig->pictControl);
-    configBuffers[0].configType                 = OVE_CONFIG_TYPE_PICTURE_CONTROL;
-    configBuffers[1].config.pRateControl        = &(pConfig->rateControl);
-    configBuffers[1].configType                 = OVE_CONFIG_TYPE_RATE_CONTROL;
-    configBuffers[2].config.pMotionEstimation   = &(pConfig->meControl);
-    configBuffers[2].configType                 = OVE_CONFIG_TYPE_MOTION_ESTIMATION;
-    configBuffers[3].config.pRDO                = &(pConfig->rdoControl);
-    configBuffers[3].configType                 = OVE_CONFIG_TYPE_RDO;
-    res = OVEncodeSendConfig (session, numOfConfigBuffers, configBuffers);
-    if (!res)
-    {
-        Log(L"OVEncodeSendConfig returned error\n");
-        return false;
-    }
-
-    /**************************************************************************/
-    /* Just verifying that the values have been set in the                    */
-    /* encoding engine.                                                       */
-    /**************************************************************************/
-    OVE_CONFIG_PICTURE_CONTROL      pictureControlConfig;
-    OVE_CONFIG_RATE_CONTROL         rateControlConfig;
-    OVE_CONFIG_MOTION_ESTIMATION    meControlConfig;
-    OVE_CONFIG_RDO                  rdoControlConfig;
+	configBuffers[0].config.pPictureControl     = &(pConfig->pictControl);
+	configBuffers[0].configType                 = OVE_CONFIG_TYPE_PICTURE_CONTROL;
+	configBuffers[1].config.pRateControl        = &(pConfig->rateControl);
+	configBuffers[1].configType                 = OVE_CONFIG_TYPE_RATE_CONTROL;
+	configBuffers[2].config.pMotionEstimation   = &(pConfig->meControl);
+	configBuffers[2].configType                 = OVE_CONFIG_TYPE_MOTION_ESTIMATION;
+	configBuffers[3].config.pRDO                = &(pConfig->rdoControl);
+	configBuffers[3].configType                 = OVE_CONFIG_TYPE_RDO;
+	res = OVEncodeSendConfig (session, numOfConfigBuffers, configBuffers);
+	if (!res)
+	{
+		Log(L"OVEncodeSendConfig returned error\n");
+		return false;
+	}
 
 	/**************************************************************************/
-    /* get the picture control configuration.                                 */
+	/* Just verifying that the values have been set in the                    */
+	/* encoding engine.                                                       */
 	/**************************************************************************/
-    memset(&pictureControlConfig, 0, sizeof(OVE_CONFIG_PICTURE_CONTROL));
-    pictureControlConfig.size = sizeof(OVE_CONFIG_PICTURE_CONTROL);
-    res = OVEncodeGetPictureControlConfig(session, &pictureControlConfig);
+	OVE_CONFIG_PICTURE_CONTROL      pictureControlConfig;
+	OVE_CONFIG_RATE_CONTROL         rateControlConfig;
+	OVE_CONFIG_MOTION_ESTIMATION    meControlConfig;
+	OVE_CONFIG_RDO                  rdoControlConfig;
 
 	/**************************************************************************/
-    /* get the rate control configuration                                     */
+	/* get the picture control configuration.                                 */
 	/**************************************************************************/
-    memset(&rateControlConfig, 0, sizeof(OVE_CONFIG_RATE_CONTROL));
-    rateControlConfig.size = sizeof(OVE_CONFIG_RATE_CONTROL);
-    res = OVEncodeGetRateControlConfig(session, &rateControlConfig); 
+	memset(&pictureControlConfig, 0, sizeof(OVE_CONFIG_PICTURE_CONTROL));
+	pictureControlConfig.size = sizeof(OVE_CONFIG_PICTURE_CONTROL);
+	res = OVEncodeGetPictureControlConfig(session, &pictureControlConfig);
 
 	/**************************************************************************/
-    /* get the MotionEstimation configuration                                 */
+	/* get the rate control configuration                                     */
 	/**************************************************************************/
-    memset(&meControlConfig, 0, sizeof(OVE_CONFIG_MOTION_ESTIMATION));
-    meControlConfig.size = sizeof(OVE_CONFIG_MOTION_ESTIMATION);
-    res = OVEncodeGetMotionEstimationConfig(session, &meControlConfig); 
+	memset(&rateControlConfig, 0, sizeof(OVE_CONFIG_RATE_CONTROL));
+	rateControlConfig.size = sizeof(OVE_CONFIG_RATE_CONTROL);
+	res = OVEncodeGetRateControlConfig(session, &rateControlConfig); 
 
 	/**************************************************************************/
-    /* get the RDO configuration                                              */
+	/* get the MotionEstimation configuration                                 */
 	/**************************************************************************/
-    memset(&rdoControlConfig, 0, sizeof(OVE_CONFIG_RDO));
-    rdoControlConfig.size = sizeof(OVE_CONFIG_RDO);
-    res = OVEncodeGetRDOControlConfig(session, &rdoControlConfig); 
+	memset(&meControlConfig, 0, sizeof(OVE_CONFIG_MOTION_ESTIMATION));
+	meControlConfig.size = sizeof(OVE_CONFIG_MOTION_ESTIMATION);
+	res = OVEncodeGetMotionEstimationConfig(session, &meControlConfig); 
+
+	/**************************************************************************/
+	/* get the RDO configuration                                              */
+	/**************************************************************************/
+	memset(&rdoControlConfig, 0, sizeof(OVE_CONFIG_RDO));
+	rdoControlConfig.size = sizeof(OVE_CONFIG_RDO);
+	res = OVEncodeGetRDOControlConfig(session, &rdoControlConfig); 
 	
 	return(res);
 }
 
 static double GetDlgItemDouble(HWND hDlg, int nIDDlgItem)
 {
-    wchar_t temp[1024];
+	wchar_t temp[1024];
 
-    if (GetDlgItemText(hDlg, nIDDlgItem, temp, 1024) == 0)
+	if (GetDlgItemText(hDlg, nIDDlgItem, temp, 1024) == 0)
 		wcscpy_s(temp, 1, L"");
-    return _wtof(temp);
+	return _wtof(temp);
 }
 
 static void SetDlgItemDouble(HWND hDlg, int nIDDlgItem, double dblValue, const wchar_t *format)
 {
-    wchar_t temp[1024];
+	wchar_t temp[1024];
 
 	swprintf(temp, 1023, format, dblValue);
-    SetDlgItemText(hDlg, nIDDlgItem, temp);
+	SetDlgItemText(hDlg, nIDDlgItem, temp);
 }
 
 static int pos2scale(int i_pos)
 {
-    int res;
-    if (i_pos <= 100)
-        res = i_pos;
-    else
-    {
-        int i = 1;
-        i_pos -= 10;
-        while (i_pos > 90)
-        {
-            i_pos -= 90;
-            i *= 10;
-        }
-        res = (i_pos + 10) * i;
-    }
-    return res;
+	int res;
+	if (i_pos <= 100)
+		res = i_pos;
+	else
+	{
+		int i = 1;
+		i_pos -= 10;
+		while (i_pos > 90)
+		{
+			i_pos -= 90;
+			i *= 10;
+		}
+		res = (i_pos + 10) * i;
+	}
+	return res;
 }
 
 static int scale2pos(int i_scale)
 {
-    int res;
-    if (i_scale <= 100)
-        res = i_scale;
-    else
-    {
-        int i = 900;
-        res = 100;
-        i_scale -= 100;
-        while (i_scale > i)
-        {
-            res += 90;
-            i_scale -= i;
-            i *= 10;
-        }
-        i /= 90;
-        res += (i_scale + (i >> 1)) / i;
-    }
-    return res;
+	int res;
+	if (i_scale <= 100)
+		res = i_scale;
+	else
+	{
+		int i = 900;
+		res = 100;
+		i_scale -= 100;
+		while (i_scale > i)
+		{
+			res += 90;
+			i_scale -= i;
+			i *= 10;
+		}
+		i /= 90;
+		res += (i_scale + (i >> 1)) / i;
+	}
+	return res;
 }
 
 #define RCFromCB(rc)\
 do {\
-    switch (rc)\
-    {\
-        case 0:\
-          rc = 0;\
-          break;\
-        case 1:\
-          rc = 3;\
-          break;\
-        case 2:\
-          rc = 4;\
-          break;\
-        default:\
-          assert(0);\
-          break;\
-    }\
+	switch (rc)\
+	{\
+		case 0: rc = 0; break;\
+		case 1: rc = 3; break;\
+		case 2: rc = 4; break;\
+		default: assert(0); break;\
+	}\
 } while (0)
 
 //x264vfw
 static void CheckControlTextIsNumber(HWND hDlgItem, int bSigned, int iDecimalPlacesNum)
 {
-    wchar_t text_old[MAX_PATH];
-    wchar_t text_new[MAX_PATH];
-    wchar_t *src, *dest;
-    DWORD start, end, num, pos;
-    int bChanged = FALSE;
-    int bCopy = FALSE;
-    int q = !bSigned;
+	wchar_t text_old[MAX_PATH];
+	wchar_t text_new[MAX_PATH];
+	wchar_t *src, *dest;
+	DWORD start, end, num, pos;
+	int bChanged = FALSE;
+	int bCopy = FALSE;
+	int q = !bSigned;
 
-    SendMessage(hDlgItem, EM_GETSEL, (WPARAM)&start, (LPARAM)&end);
-    num = SendMessage(hDlgItem, WM_GETTEXT, MAX_PATH, (LPARAM)text_old);
-    src = text_old;
-    dest = text_new;
-    pos = 0;
-    while (num > 0)
-    {
-        bCopy = TRUE;
-        if (q == 0 && *src == '-')
-        {
-            q = 1;
-        }
-        else if ((q == 0 || q == 1) && *src >= '0' && *src <= '9')
-        {
-            q = 2;
-        }
-        else if (q == 2 && *src >= '0' && *src <= '9')
-        {
-        }
-        else if (q == 2 && iDecimalPlacesNum > 0 && *src == '.')
-        {
-            q = 3;
-        }
-        else if (q == 3 && iDecimalPlacesNum > 0 && *src >= '0' && *src <= '9')
-        {
-            iDecimalPlacesNum--;
-        }
-        else
-            bCopy = FALSE;
-        if (bCopy)
-        {
-            *dest = *src;
-            dest++;
-            pos++;
-        }
-        else
-        {
-            bChanged = TRUE;
-            if (pos < start)
-                start--;
-            if (pos < end)
-                end--;
-        }
-        src++;
-        num--;
-    }
-    *dest = 0;
-    if (bChanged)
-    {
-        SendMessage(hDlgItem, WM_SETTEXT, 0, (LPARAM)text_new);
-        SendMessage(hDlgItem, EM_SETSEL, start, end);
-    }
+	SendMessage(hDlgItem, EM_GETSEL, (WPARAM)&start, (LPARAM)&end);
+	num = SendMessage(hDlgItem, WM_GETTEXT, MAX_PATH, (LPARAM)text_old);
+	src = text_old;
+	dest = text_new;
+	pos = 0;
+	while (num > 0)
+	{
+		bCopy = TRUE;
+		if (q == 0 && *src == '-')
+		{
+			q = 1;
+		}
+		else if ((q == 0 || q == 1) && *src >= '0' && *src <= '9')
+		{
+			q = 2;
+		}
+		else if (q == 2 && *src >= '0' && *src <= '9')
+		{
+		}
+		else if (q == 2 && iDecimalPlacesNum > 0 && *src == '.')
+		{
+			q = 3;
+		}
+		else if (q == 3 && iDecimalPlacesNum > 0 && *src >= '0' && *src <= '9')
+		{
+			iDecimalPlacesNum--;
+		}
+		else
+			bCopy = FALSE;
+		if (bCopy)
+		{
+			*dest = *src;
+			dest++;
+			pos++;
+		}
+		else
+		{
+			bChanged = TRUE;
+			if (pos < start)
+				start--;
+			if (pos < end)
+				end--;
+		}
+		src++;
+		num--;
+	}
+	*dest = 0;
+	if (bChanged)
+	{
+		SendMessage(hDlgItem, WM_SETTEXT, 0, (LPARAM)text_new);
+		SendMessage(hDlgItem, EM_SETSEL, start, end);
+	}
 }
 
 #define CHECKED_SET_INT(var, hDlg, nIDDlgItem, bSigned, min, max)\
 do {\
-    CheckControlTextIsNumber(GetDlgItem(hDlg, nIDDlgItem), bSigned, 0);\
-    var = GetDlgItemInt(hDlg, nIDDlgItem, NULL, bSigned);\
-    if (var < min)\
-    {\
-        var = min;\
-        SetDlgItemInt(hDlg, nIDDlgItem, var, bSigned);\
-        SendMessage(GetDlgItem(hDlg, nIDDlgItem), EM_SETSEL, -2, -2);\
-    }\
-    else if (var > max)\
-    {\
-        var = max;\
-        SetDlgItemInt(hDlg, nIDDlgItem, var, bSigned);\
-        SendMessage(GetDlgItem(hDlg, nIDDlgItem), EM_SETSEL, -2, -2);\
-    }\
+	CheckControlTextIsNumber(GetDlgItem(hDlg, nIDDlgItem), bSigned, 0);\
+	var = GetDlgItemInt(hDlg, nIDDlgItem, NULL, bSigned);\
+	if (var < min)\
+	{\
+		var = min;\
+		SetDlgItemInt(hDlg, nIDDlgItem, var, bSigned);\
+		SendMessage(GetDlgItem(hDlg, nIDDlgItem), EM_SETSEL, -2, -2);\
+	}\
+	else if (var > max)\
+	{\
+		var = max;\
+		SetDlgItemInt(hDlg, nIDDlgItem, var, bSigned);\
+		SendMessage(GetDlgItem(hDlg, nIDDlgItem), EM_SETSEL, -2, -2);\
+	}\
 } while (0)
 
 #define CHECKED_SET_MIN_INT(var, hDlg, nIDDlgItem, bSigned, min, max)\
 do {\
-    CheckControlTextIsNumber(GetDlgItem(hDlg, nIDDlgItem), bSigned, 0);\
-    var = GetDlgItemInt(hDlg, nIDDlgItem, NULL, bSigned);\
-    if (var < min)\
-    {\
-        var = min;\
-        SetDlgItemInt(hDlg, nIDDlgItem, var, bSigned);\
-        SendMessage(GetDlgItem(hDlg, nIDDlgItem), EM_SETSEL, -2, -2);\
-    }\
-    else if (var > max)\
-        var = max;\
+	CheckControlTextIsNumber(GetDlgItem(hDlg, nIDDlgItem), bSigned, 0);\
+	var = GetDlgItemInt(hDlg, nIDDlgItem, NULL, bSigned);\
+	if (var < min)\
+	{\
+		var = min;\
+		SetDlgItemInt(hDlg, nIDDlgItem, var, bSigned);\
+		SendMessage(GetDlgItem(hDlg, nIDDlgItem), EM_SETSEL, -2, -2);\
+	}\
+	else if (var > max)\
+		var = max;\
 } while (0)
 
 #define CHECKED_SET_MAX_INT(var, hDlg, nIDDlgItem, bSigned, min, max)\
 do {\
-    CheckControlTextIsNumber(GetDlgItem(hDlg, nIDDlgItem), bSigned, 0);\
-    var = GetDlgItemInt(hDlg, nIDDlgItem, NULL, bSigned);\
-    if (var < min)\
-        var = min;\
-    else if (var > max)\
-    {\
-        var = max;\
-        SetDlgItemInt(hDlg, nIDDlgItem, var, bSigned);\
-        SendMessage(GetDlgItem(hDlg, nIDDlgItem), EM_SETSEL, -2, -2);\
-    }\
+	CheckControlTextIsNumber(GetDlgItem(hDlg, nIDDlgItem), bSigned, 0);\
+	var = GetDlgItemInt(hDlg, nIDDlgItem, NULL, bSigned);\
+	if (var < min)\
+		var = min;\
+	else if (var > max)\
+	{\
+		var = max;\
+		SetDlgItemInt(hDlg, nIDDlgItem, var, bSigned);\
+		SendMessage(GetDlgItem(hDlg, nIDDlgItem), EM_SETSEL, -2, -2);\
+	}\
 } while (0)
 
 #define CHECKED_SET_SHOW_INT(var, hDlg, nIDDlgItem, bSigned, min, max)\
 do {\
-    CheckControlTextIsNumber(GetDlgItem(hDlg, nIDDlgItem), bSigned, 0);\
-    var = GetDlgItemInt(hDlg, nIDDlgItem, NULL, bSigned);\
-    if (var < min)\
-        var = min;\
-    else if (var > max)\
-        var = max;\
-    SetDlgItemInt(hDlg, nIDDlgItem, var, bSigned);\
+	CheckControlTextIsNumber(GetDlgItem(hDlg, nIDDlgItem), bSigned, 0);\
+	var = GetDlgItemInt(hDlg, nIDDlgItem, NULL, bSigned);\
+	if (var < min)\
+		var = min;\
+	else if (var > max)\
+		var = max;\
+	SetDlgItemInt(hDlg, nIDDlgItem, var, bSigned);\
 } while (0)
 
 #define LevelToIdx(l)\
 	do {\
-    switch (l)\
-    {\
+	switch (l)\
+	{\
 		case 30: l = 0; break;\
 		case 31: l = 1; break;\
 		case 32: l = 2; break;\
-        case 40: l = 3; break;\
-        case 41: l = 4; break;\
-        case 42: l = 5; break;\
+		case 40: l = 3; break;\
+		case 41: l = 4; break;\
+		case 42: l = 5; break;\
 		case 50: l = 6; break;\
 		case 51: l = 7; break;\
-        default:\
-          l = 3;\
-          break;\
-    }\
+		default:\
+		  l = 3;\
+		  break;\
+	}\
 } while (0)
 
 #define IdxToLevel(l)\
 	do {\
-    switch (l)\
-    {\
+	switch (l)\
+	{\
 		case 0: l = 30; break;\
-        case 1: l = 31; break;\
+		case 1: l = 31; break;\
 		case 2: l = 32; break;\
 		case 3: l = 40; break;\
-        case 4: l = 41; break;\
+		case 4: l = 41; break;\
 		case 5: l = 42; break;\
 		case 6: l = 50; break;\
 		case 7: l = 51; break;\
-        default:\
-          l = 40;\
-          break;\
-    }\
+		default:\
+		  l = 40;\
+		  break;\
+	}\
 } while (0)
 
 static void DialogUpdate(HWND hwndDlg, CodecInst* pinst)
 {					  
 	wchar_t temp[1024];
 	if (SendMessage(GetDlgItem(hwndDlg, IDC_RC_MODE), CB_GETCOUNT, 0, 0) == 0)
-    {
-        SendDlgItemMessage(hwndDlg, IDC_RC_MODE, CB_ADDSTRING, 0, (LPARAM)L"Mode 0: Fixed QP");
-        //SendDlgItemMessage(hwndDlg, IDC_RC_MODE, CB_ADDSTRING, 0, (LPARAM)L"1: Something 1");
-        //SendDlgItemMessage(hwndDlg, IDC_RC_MODE, CB_ADDSTRING, 0, (LPARAM)L"2: Something 2");
-        SendDlgItemMessage(hwndDlg, IDC_RC_MODE, CB_ADDSTRING, 0, (LPARAM)L"Mode 3: CBR");
-        SendDlgItemMessage(hwndDlg, IDC_RC_MODE, CB_ADDSTRING, 0, (LPARAM)L"Mode 4: VBR");
-        //SendDlgItemMessage(hwndDlg, IDC_RC_MODE, CB_ADDSTRING, 0, (LPARAM)"5: Reserved");
-    }
+	{
+		SendDlgItemMessage(hwndDlg, IDC_RC_MODE, CB_ADDSTRING, 0, (LPARAM)L"Mode 0: Fixed QP");
+		//SendDlgItemMessage(hwndDlg, IDC_RC_MODE, CB_ADDSTRING, 0, (LPARAM)L"1: Something 1");
+		//SendDlgItemMessage(hwndDlg, IDC_RC_MODE, CB_ADDSTRING, 0, (LPARAM)L"2: Something 2");
+		SendDlgItemMessage(hwndDlg, IDC_RC_MODE, CB_ADDSTRING, 0, (LPARAM)L"Mode 3: CBR");
+		SendDlgItemMessage(hwndDlg, IDC_RC_MODE, CB_ADDSTRING, 0, (LPARAM)L"Mode 4: VBR");
+		//SendDlgItemMessage(hwndDlg, IDC_RC_MODE, CB_ADDSTRING, 0, (LPARAM)"5: Reserved");
+	}
 
 	if (pinst->mDevList.size()>0 && SendMessage(GetDlgItem(hwndDlg, IDC_DEVICE_CB), CB_GETCOUNT, 0, 0) == 0)
 	{
@@ -681,40 +678,40 @@ static void DialogUpdate(HWND hwndDlg, CodecInst* pinst)
 	switch(pinst->mConfigTable[L"encRateControlMethod"])
 	{
 	case 0: //Fixed QP
-        SendDlgItemMessage(hwndDlg, IDC_RC_MODE, CB_SETCURSEL, 0, 0);
-        SetDlgItemText(hwndDlg, IDC_RC_LABEL, L"Quantizer");
-        SetDlgItemText(hwndDlg, IDC_RC_LOW_LABEL, L"0 (High quality)");
-        swprintf(temp, 1023, L"(Low quality) %d", MAX_QUANT);
-        SetDlgItemText(hwndDlg, IDC_RC_HIGH_LABEL, temp);
-        SetDlgItemInt(hwndDlg, IDC_RC_VAL, pinst->mConfigTable[L"encQP_I"], FALSE);
-        SendDlgItemMessage(hwndDlg, IDC_RC_VAL_SLIDER, TBM_SETRANGEMIN, TRUE, 0);
-        SendDlgItemMessage(hwndDlg, IDC_RC_VAL_SLIDER, TBM_SETRANGEMAX, TRUE, MAX_QUANT);
-        SendDlgItemMessage(hwndDlg, IDC_RC_VAL_SLIDER, TBM_SETPOS, TRUE, pinst->mConfigTable[L"encQP_I"]);
-        break;
+		SendDlgItemMessage(hwndDlg, IDC_RC_MODE, CB_SETCURSEL, 0, 0);
+		SetDlgItemText(hwndDlg, IDC_RC_LABEL, L"Quantizer");
+		SetDlgItemText(hwndDlg, IDC_RC_LOW_LABEL, L"0 (High quality)");
+		swprintf(temp, 1023, L"(Low quality) %d", MAX_QUANT);
+		SetDlgItemText(hwndDlg, IDC_RC_HIGH_LABEL, temp);
+		SetDlgItemInt(hwndDlg, IDC_RC_VAL, pinst->mConfigTable[L"encQP_I"], FALSE);
+		SendDlgItemMessage(hwndDlg, IDC_RC_VAL_SLIDER, TBM_SETRANGEMIN, TRUE, 0);
+		SendDlgItemMessage(hwndDlg, IDC_RC_VAL_SLIDER, TBM_SETRANGEMAX, TRUE, MAX_QUANT);
+		SendDlgItemMessage(hwndDlg, IDC_RC_VAL_SLIDER, TBM_SETPOS, TRUE, pinst->mConfigTable[L"encQP_I"]);
+		break;
 	case 3:// 3: CBR
 		SendDlgItemMessage(hwndDlg, IDC_RC_MODE, CB_SETCURSEL, 1, 0);
 		SetDlgItemText(hwndDlg, IDC_RC_LABEL, L"Constant bitrate (kbit/s)");
-        SetDlgItemText(hwndDlg, IDC_RC_LOW_LABEL, L"1");
-        swprintf(temp, 1023, L"%d", MAX_BITRATE);
-        SetDlgItemText(hwndDlg, IDC_RC_HIGH_LABEL, temp);
-        SetDlgItemInt(hwndDlg, IDC_RC_VAL, pinst->mConfigTable[L"encRateControlTargetBitRate"] / 1000, FALSE);
-        SendDlgItemMessage(hwndDlg, IDC_RC_VAL_SLIDER, TBM_SETRANGEMIN, TRUE, 1);
-        //SendDlgItemMessage(hwndDlg, IDC_RC_VAL_SLIDER, TBM_SETRANGEMAX, TRUE, scale2pos(MAX_BITRATE));
+		SetDlgItemText(hwndDlg, IDC_RC_LOW_LABEL, L"1");
+		swprintf(temp, 1023, L"%d", MAX_BITRATE);
+		SetDlgItemText(hwndDlg, IDC_RC_HIGH_LABEL, temp);
+		SetDlgItemInt(hwndDlg, IDC_RC_VAL, pinst->mConfigTable[L"encRateControlTargetBitRate"] / 1000, FALSE);
+		SendDlgItemMessage(hwndDlg, IDC_RC_VAL_SLIDER, TBM_SETRANGEMIN, TRUE, 1);
+		//SendDlgItemMessage(hwndDlg, IDC_RC_VAL_SLIDER, TBM_SETRANGEMAX, TRUE, scale2pos(MAX_BITRATE));
 		SendDlgItemMessage(hwndDlg, IDC_RC_VAL_SLIDER, TBM_SETRANGEMAX, TRUE, MAX_BITRATE);
-        //SendDlgItemMessage(hwndDlg, IDC_RC_VAL_SLIDER, TBM_SETPOS, TRUE, scale2pos(pinst->mConfigTable[L"encRateControlTargetBitRate"] / 1000));
+		//SendDlgItemMessage(hwndDlg, IDC_RC_VAL_SLIDER, TBM_SETPOS, TRUE, scale2pos(pinst->mConfigTable[L"encRateControlTargetBitRate"] / 1000));
 		SendDlgItemMessage(hwndDlg, IDC_RC_VAL_SLIDER, TBM_SETPOS, TRUE, pinst->mConfigTable[L"encRateControlTargetBitRate"] / 1000);
 		break;
 
 	case 4: // VBR
 		SendDlgItemMessage(hwndDlg, IDC_RC_MODE, CB_SETCURSEL, 2, 0);
 		SetDlgItemText(hwndDlg, IDC_RC_LABEL, L"Variable bitrate (kbit/s)");
-        SetDlgItemText(hwndDlg, IDC_RC_LOW_LABEL, L"1");
-        wsprintf(temp, L"%d", MAX_BITRATE);
-        SetDlgItemText(hwndDlg, IDC_RC_HIGH_LABEL, temp);
-        SetDlgItemInt(hwndDlg, IDC_RC_VAL, pinst->mConfigTable[L"encRateControlTargetBitRate"] / 1000, FALSE);
-        SendDlgItemMessage(hwndDlg, IDC_RC_VAL_SLIDER, TBM_SETRANGEMIN, TRUE, 1);
-        SendDlgItemMessage(hwndDlg, IDC_RC_VAL_SLIDER, TBM_SETRANGEMAX, TRUE, MAX_BITRATE);
-        SendDlgItemMessage(hwndDlg, IDC_RC_VAL_SLIDER, TBM_SETPOS, TRUE, pinst->mConfigTable[L"encRateControlTargetBitRate"] / 1000);
+		SetDlgItemText(hwndDlg, IDC_RC_LOW_LABEL, L"1");
+		wsprintf(temp, L"%d", MAX_BITRATE);
+		SetDlgItemText(hwndDlg, IDC_RC_HIGH_LABEL, temp);
+		SetDlgItemInt(hwndDlg, IDC_RC_VAL, pinst->mConfigTable[L"encRateControlTargetBitRate"] / 1000, FALSE);
+		SendDlgItemMessage(hwndDlg, IDC_RC_VAL_SLIDER, TBM_SETRANGEMIN, TRUE, 1);
+		SendDlgItemMessage(hwndDlg, IDC_RC_VAL_SLIDER, TBM_SETRANGEMAX, TRUE, MAX_BITRATE);
+		SendDlgItemMessage(hwndDlg, IDC_RC_VAL_SLIDER, TBM_SETPOS, TRUE, pinst->mConfigTable[L"encRateControlTargetBitRate"] / 1000);
 		break;
 	}
 
@@ -726,6 +723,7 @@ static void DialogUpdate(HWND hwndDlg, CodecInst* pinst)
 
 	CheckDlgButton(hwndDlg, IDC_CABAC, pinst->mConfigTable[L"CABACEnable"]);
 	CheckDlgButton(hwndDlg, IDC_USE_OPENCL, pinst->mUseCLConv ? 1 : 0);
+	CheckDlgButton(hwndDlg, IDC_USE_OPENCL2, pinst->mUseCPU ? 1 : 0);
 	CheckDlgButton(hwndDlg, IDC_USE_ME_AMD, pinst->mConfigTable[L"enableAMD"]);
 	CheckDlgButton(hwndDlg, IDC_SKIP_MV16, pinst->mConfigTable[L"encForce16x16skip"]);
 	CheckDlgButton(hwndDlg, IDC_FRAMERATE, pinst->mConfigTable[L"sendFPS"]);
@@ -734,9 +732,11 @@ static void DialogUpdate(HWND hwndDlg, CodecInst* pinst)
 	CheckDlgButton(hwndDlg, IDC_SPEEDY_MATH, pinst->mConfigTable[L"SpeedyMath"]);
 	CheckDlgButton(hwndDlg, IDC_CS_LIMIT, pinst->mConfigTable[L"ColorspaceLimit"]);
 	CheckDlgButton(hwndDlg, IDC_LOG, pinst->mConfigTable[L"Log"]);
+	swprintf(temp, 1023, L"%d", pinst->mConfigTable[L"IDRframes"]);
+	SetDlgItemText(hwndDlg, IDC_IDR, temp);
 
 	swprintf(temp, 1023, L"Build date: %S %S", __DATE__, __TIME__);
-    SetDlgItemText(hwndDlg, IDC_BUILD_DATE, temp);
+	SetDlgItemText(hwndDlg, IDC_BUILD_DATE, temp);
 }
 
 static BOOL CALLBACK ConfigureDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam) {
@@ -762,46 +762,46 @@ static BOOL CALLBACK ConfigureDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam,
 	case WM_COMMAND:
 		
 		switch (HIWORD(wParam))
-        {
-            case LBN_SELCHANGE:
-                switch (LOWORD(wParam))
-                {
-                    case IDC_RC_MODE:
+		{
+			case LBN_SELCHANGE:
+				switch (LOWORD(wParam))
+				{
+					case IDC_RC_MODE:
 						pinst->mConfigTable[L"encRateControlMethod"] = SendDlgItemMessage(hwndDlg, IDC_RC_MODE, CB_GETCURSEL, 0, 0);
-                        RCFromCB(pinst->mConfigTable[L"encRateControlMethod"]);
-                        
+						RCFromCB(pinst->mConfigTable[L"encRateControlMethod"]);
+						
 						pinst->mDialogUpdated = false;
 						DialogUpdate(hwndDlg, pinst);
 						pinst->mDialogUpdated = true;
 
-                        /* Ugly hack for fixing visualization bug of IDC_RC_VAL_SLIDER */
-                        //ShowWindow(GetDlgItem(hwndDlg, IDC_RC_VAL_SLIDER), FALSE);
-                        //ShowWindow(GetDlgItem(hwndDlg, IDC_RC_VAL_SLIDER), 1);
+						/* Ugly hack for fixing visualization bug of IDC_RC_VAL_SLIDER */
+						//ShowWindow(GetDlgItem(hwndDlg, IDC_RC_VAL_SLIDER), FALSE);
+						//ShowWindow(GetDlgItem(hwndDlg, IDC_RC_VAL_SLIDER), 1);
 
 						break;
 
 					case IDC_LEVEL_CB:
 						pinst->mConfigTable[L"level"] = SendDlgItemMessage(hwndDlg, IDC_LEVEL_CB, CB_GETCURSEL, 0, 0);
-                        IdxToLevel(pinst->mConfigTable[L"level"]);
+						IdxToLevel(pinst->mConfigTable[L"level"]);
 
-                        break;
+						break;
 
-                    default:
-                        return FALSE;
-                }
-                break;
+					default:
+						return FALSE;
+				}
+				break;
 
 			case BN_CLICKED:
 				switch (LOWORD(wParam))
-                {
+				{
 				case IDC_OK:
 					pinst->saveRegistry();
-                    EndDialog(hwndDlg, LOWORD(wParam));
-                    break;
-                case IDC_CANCEL:
-                    pinst->readRegistry();
-                    EndDialog(hwndDlg, LOWORD(wParam));
-                    break;
+					EndDialog(hwndDlg, LOWORD(wParam));
+					break;
+				case IDC_CANCEL:
+					pinst->readRegistry();
+					EndDialog(hwndDlg, LOWORD(wParam));
+					break;
 				case IDC_CABAC:
 					pinst->mConfigTable[L"CABACEnable"] = IsDlgButtonChecked(hwndDlg, IDC_CABAC);
 					break;
@@ -810,6 +810,9 @@ static BOOL CALLBACK ConfigureDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam,
 					break;
 				case IDC_USE_OPENCL:
 					pinst->mUseCLConv = IsDlgButtonChecked(hwndDlg, IDC_USE_OPENCL) == 1;
+					break;
+				case IDC_USE_OPENCL2:
+					pinst->mUseCPU = IsDlgButtonChecked(hwndDlg, IDC_USE_OPENCL2) == 1;
 					break;
 				case IDC_USE_ME_AMD:
 					pinst->mConfigTable[L"enableAMD"] = IsDlgButtonChecked(hwndDlg, IDC_USE_ME_AMD);
@@ -861,8 +864,12 @@ static BOOL CALLBACK ConfigureDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam,
 				break;
 
 			case EN_CHANGE:
-                switch (LOWORD(wParam))
-                {
+				switch (LOWORD(wParam))
+				{
+					case IDC_IDR:
+						CHECKED_SET_MAX_INT(rate, hwndDlg, IDC_IDR, FALSE, 1, 0xFFFFFFFF);//TODO max
+						pinst->mConfigTable[L"IDRframes"] = rate;
+						break;
 					case IDC_SEARCHRX:
 						CHECKED_SET_MAX_INT(rate, hwndDlg, IDC_SEARCHRX, FALSE, 0, 36);
 						pinst->mConfigTable[L"encSearchRangeX"] = rate;
@@ -871,53 +878,53 @@ static BOOL CALLBACK ConfigureDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam,
 						CHECKED_SET_MAX_INT(rate, hwndDlg, IDC_SEARCHRY, FALSE, 0, 36);
 						pinst->mConfigTable[L"encSearchRangeY"] = rate;
 						break;
-                    case IDC_RC_VAL:
+					case IDC_RC_VAL:
 						switch(pinst->mConfigTable[L"encRateControlMethod"])
 						{
 						case 0:
-                            CHECKED_SET_MAX_INT(qp, hwndDlg, IDC_RC_VAL, FALSE, 0, MAX_QUANT);
-                            SendDlgItemMessage(hwndDlg, IDC_RC_VAL_SLIDER, TBM_SETPOS, TRUE, qp);
+							CHECKED_SET_MAX_INT(qp, hwndDlg, IDC_RC_VAL, FALSE, 0, MAX_QUANT);
+							SendDlgItemMessage(hwndDlg, IDC_RC_VAL_SLIDER, TBM_SETPOS, TRUE, qp);
 							pinst->mConfigTable[L"encQP_I"] = pinst->mConfigTable[L"encQP_P"] = qp;
 							break;
 						case 3:
 						case 4:
-                            CHECKED_SET_MAX_INT(rate, hwndDlg, IDC_RC_VAL, FALSE, 1, MAX_BITRATE);
-                            SendDlgItemMessage(hwndDlg, IDC_RC_VAL_SLIDER, TBM_SETPOS, TRUE, rate);
+							CHECKED_SET_MAX_INT(rate, hwndDlg, IDC_RC_VAL, FALSE, 1, MAX_BITRATE);
+							SendDlgItemMessage(hwndDlg, IDC_RC_VAL_SLIDER, TBM_SETPOS, TRUE, rate);
 							pinst->mConfigTable[L"encRateControlTargetBitRate"] = rate * 1000;
-                            break;
+							break;
 						}
 						break;
 				}
 				break;
 		}
 		case WM_HSCROLL:
-            if ((HWND)lParam == GetDlgItem(hwndDlg, IDC_RC_VAL_SLIDER))
-            {
-                switch (pinst->mConfigTable[L"encRateControlMethod"])
-                {
-                    case 0:
-                        pinst->mConfigTable[L"encQP_I"] = pinst->mConfigTable[L"encQP_P"] = 
+			if ((HWND)lParam == GetDlgItem(hwndDlg, IDC_RC_VAL_SLIDER))
+			{
+				switch (pinst->mConfigTable[L"encRateControlMethod"])
+				{
+					case 0:
+						pinst->mConfigTable[L"encQP_I"] = pinst->mConfigTable[L"encQP_P"] = 
 							SendDlgItemMessage(hwndDlg, IDC_RC_VAL_SLIDER, TBM_GETPOS, 0, 0);
-                        SetDlgItemInt(hwndDlg, IDC_RC_VAL, pinst->mConfigTable[L"encQP_I"], FALSE);
-                        break;
+						SetDlgItemInt(hwndDlg, IDC_RC_VAL, pinst->mConfigTable[L"encQP_I"], FALSE);
+						break;
 
-                    case 3:
-                    case 4:
-                        //rate = pos2scale(SendDlgItemMessage(hwndDlg, IDC_RC_VAL_SLIDER, TBM_GETPOS, 0, 0));
+					case 3:
+					case 4:
+						//rate = pos2scale(SendDlgItemMessage(hwndDlg, IDC_RC_VAL_SLIDER, TBM_GETPOS, 0, 0));
 						rate = SendDlgItemMessage(hwndDlg, IDC_RC_VAL_SLIDER, TBM_GETPOS, 0, 0);
-                        rate = CLIP(rate, 1, MAX_BITRATE);
+						rate = CLIP(rate, 1, MAX_BITRATE);
 						pinst->mConfigTable[L"encRateControlTargetBitRate"] = rate * 1000;
-                        SetDlgItemInt(hwndDlg, IDC_RC_VAL, rate, FALSE);
-                        break;
+						SetDlgItemInt(hwndDlg, IDC_RC_VAL, rate, FALSE);
+						break;
 
-                    default:
-                        assert(0);
-                        break;
-                }
-            }
-            else
-                return FALSE;
-            break;
+					default:
+						assert(0);
+						break;
+				}
+			}
+			else
+				return FALSE;
+			break;
 	}
 	return 0;
 }

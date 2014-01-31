@@ -88,6 +88,8 @@
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <OpenMPSupport>
+      </OpenMPSupport>
     </ClCompile>
     <Link>
       <AdditionalDependencies>WinMM.Lib;psapi.lib;Shlwapi.lib;User32.lib;Gdi32.lib;OpenVideo.lib;OpenCL.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -136,6 +138,7 @@ copy $(TargetPath) ..\OpenEncode64</Command>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <OpenMPSupport>true</OpenMPSupport>
     </ClCompile>
     <Link>
       <AdditionalDependencies>WinMM.lib;psapi.lib;Shlwapi.lib;User32.lib;Gdi32.lib;OpenVideo.lib;OpenCL.lib;%(AdditionalDependencies)</AdditionalDependencies>
