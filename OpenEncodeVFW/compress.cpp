@@ -339,7 +339,7 @@ DWORD CodecInst::Compress(ICCOMPRESS* icinfo, DWORD dwSize) {
         ret_val = ICERR_OK;
     
     //FIXME Keyframe flag
-    if (ret_val == ICERR_OK && (icinfo->lFrameNum % 250 == 0 /*|| mParser->b_key*/) )
+    if (ret_val == ICERR_OK && (mConfigTable[L"IDRframes"] > 0 && icinfo->lFrameNum % mConfigTable[L"IDRframes"] == 0 /*|| mParser->b_key*/) )
     {
         //if(isH264iFrame(out))
         *icinfo->lpdwFlags = AVIIF_KEYFRAME;
