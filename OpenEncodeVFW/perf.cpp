@@ -135,8 +135,8 @@ void CodecInst::displayFps(OVprofile *profileCnt,cl_device_id clDeviceID )
 {
 	static int32 dumped = 0; if(dumped) return; dumped = 1;
 	uint32 gpuFreq;
-	float32 mean0=1, mean1=1, mean2=1;
-	float32 perf0=0, perf1=0, perf2=0;
+	float32 mean0=1, mean1=1, mean2=1, mean3=1, mean4=1;
+	float32 perf0=0, perf1=0, perf2=0, perf3=0, perf4=0;
 	if(mLog) 
 	{
 		LARGE_INTEGER li, l2;
@@ -150,8 +150,8 @@ void CodecInst::displayFps(OVprofile *profileCnt,cl_device_id clDeviceID )
 		int64 etime = myRdtsc();
 		freq *= ((float32)(etime-stime))/((float32)(l2.QuadPart-li.QuadPart));
 		Log(L"\nVCE Performance\n");
-		Log(L"Processor Frequency: %5.2f MHz\n", freq/1000000);
-		Log(L"GPU Frequency      : %6.2f  MHz\n", (float32)gpuFreq);
+		Log(L"Processor Frequency: %5.2f MHz (%6.2f)\n", freq/1000000, freq);
+		Log(L"GPU Frequency      : %6.2f MHz\n", (float32)gpuFreq);
 		for(int32 i = 0; i < MAX_TIMING; i++)
 		{
 			if(profileCnt->callCount[i]) {
@@ -162,18 +162,29 @@ void CodecInst::displayFps(OVprofile *profileCnt,cl_device_id clDeviceID )
 					mean0 = mean;
 					perf0 = freq/mean0;
 				}
-				if (i == 1) {
+				else if (i == 1) {
 					mean1 = mean;
 					perf1 = freq/(mean0+mean1);//seems kinda off
 				}
-				if (i == 2) {
+				else if (i == 2) {
 					mean2 = mean;
-					perf2 = freq/(mean2);
+				}
+				else if (i == 3) {
+					mean3 = mean;
+					perf3 = freq/(mean0+mean1+mean3);
+				}
+				else if (i == 4) {
+					mean4 = mean;
+					perf4 = freq/mean;
 				}
 			}
 		}
-		Log(L"VCE Frame Rate     : %5.2f [FPS]\n",perf1);
-		Log(L"Colourspace conv   : %5.2f [FPS]\n",perf2);
+		Log(L"VCE Frame Rate (encode+query) : %5.2f [FPS]\n", perf1);
+		Log(L"VCE Frame Rate (encode)       : %5.2f\n", mean0);
+		Log(L"VCE Frame Rate (query)        : %5.2f\n", mean1);
+		Log(L"VCE Frame Rate (copy back)    : %5.2f\n", mean3);
+		Log(L"Colourspace conv              : %5.2f\n", mean2);
+		Log(L"Whole compression             : %5.2f [FPS]\n", perf4);
 	}
 }
 

@@ -182,68 +182,41 @@ int clConvert::waitForEventAndRelease(cl_event *event)
 
 void clConvert::Cleanup_OpenCL()
 {
+
+#ifdef USE_HOST_MEM
+	g_inputBuffer = NULL;
+	auto it = bufferMap.begin();
+	for(;it != bufferMap.end(); it++)
+		clReleaseMemObject(it->second);
+#else
     if( g_inputBuffer ) {clReleaseMemObject( g_inputBuffer ); g_inputBuffer = NULL;}
+#endif
+
+    if( g_pinnedBuffer ) {clReleaseMemObject( g_pinnedBuffer ); g_pinnedBuffer = NULL;}
     if( g_outputBuffer ) {clReleaseMemObject( g_outputBuffer ); g_outputBuffer = NULL;}
-	if( g_blendBuffer ) {clReleaseMemObject( g_blendBuffer ); g_blendBuffer = NULL;}
+    if( g_blendBuffer ) {clReleaseMemObject( g_blendBuffer ); g_blendBuffer = NULL;}
     if( g_nv12_to_rgba_kernel ) {clReleaseKernel( g_nv12_to_rgba_kernel ); g_nv12_to_rgba_kernel = NULL;}
     if( g_rgba_to_nv12_kernel ) {clReleaseKernel( g_rgba_to_nv12_kernel ); g_rgba_to_nv12_kernel = NULL;}
-	if( g_rgb_to_nv12_kernel ) {clReleaseKernel( g_rgb_to_nv12_kernel ); g_rgb_to_nv12_kernel = NULL;}
-	if( g_rgb_blend_kernel ) {clReleaseKernel( g_rgb_blend_kernel ); g_rgb_blend_kernel = NULL;}
-	if( g_rgba_blend_kernel ) {clReleaseKernel( g_rgba_blend_kernel ); g_rgba_blend_kernel = NULL;}
+    if( g_rgb_to_nv12_kernel ) {clReleaseKernel( g_rgb_to_nv12_kernel ); g_rgb_to_nv12_kernel = NULL;}
+    if( g_rgb_blend_kernel ) {clReleaseKernel( g_rgb_blend_kernel ); g_rgb_blend_kernel = NULL;}
+    if( g_rgba_blend_kernel ) {clReleaseKernel( g_rgba_blend_kernel ); g_rgba_blend_kernel = NULL;}
     if( g_program ) {clReleaseProgram( g_program ); g_program = NULL;}
     //if( g_cmd_queue ) {clReleaseCommandQueue( g_cmd_queue ); g_cmd_queue = NULL;}
     //if( g_context ) {clReleaseContext( g_context ); g_context = NULL;}
     if(host_ptr) { free(host_ptr); host_ptr = NULL;}
-	if(g_decoded_frame) {free(g_decoded_frame); g_decoded_frame = NULL;} 
+    if(g_decoded_frame) {free(g_decoded_frame); g_decoded_frame = NULL;} 
 }
 
+//Everything else is in device.cpp
 int clConvert::setupCL()
 {
-    //cl_int status = CL_SUCCESS;
-    //cl_device_type dType;
-    //cl_device_id devices[16];
-    //size_t cb;
-
-    /*
-     * Have a look at the available platforms and pick either
-     * the AMD one if available or a reasonable default.
-     */
-    /*cl_platform_id platform = NULL;
-    int retValue = getPlatform(platform);
-    CHECK_ERROR(retValue, SUCCESS, "getPlatform() failed");
-
-	cl_context_properties context_properties[3] = {CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
-	
-	// create the OpenCL context on a CPU/PG 
-	if(g_bRunOnGPU)
-	{
-		g_context = clCreateContextFromType(context_properties, CL_DEVICE_TYPE_GPU, NULL, NULL, &status);
-	}
-	else
-	{
-		g_context = clCreateContextFromType(context_properties, CL_DEVICE_TYPE_CPU, NULL, NULL, &status);
-	}
-    if (g_context == (cl_context)0)
-    {
-		CHECK_OPENCL_ERROR(status, "clCreateContextFromType failed");
-        return FAILURE;
-	}
-    
-    
-    // get the list of CPU devices associated with context
-    status = clGetContextInfo(g_context, CL_CONTEXT_DEVICES, 0, NULL, &cb);
-    clGetContextInfo(g_context, CL_CONTEXT_DEVICES, cb, devices, NULL);
-
-	deviceID = devices[0];
-	*/
-
     g_cmd_queue = clCreateCommandQueue(g_context, deviceID, 0, NULL);
     if (g_cmd_queue == (cl_command_queue)0)
     {
         Cleanup_OpenCL();
         return FAILURE;
     }
-        
+
     return SUCCESS;
 }
 
@@ -597,17 +570,26 @@ int clConvert::encodeInit()
 	//VCE encoder needs aligned input, adjust pitch here
 	oAlignedWidth = ((iWidth + (256 - 1)) & ~(256 - 1));
     g_output_size = oAlignedWidth * oHeight * 3 / 2;
-    
-	//TODO Use host ptr?
-	// Create buffer to store the YUV image
+
+#ifndef USE_HOST_MEM
+    // Create buffer to store the YUV image
     g_inputBuffer = clCreateBuffer(
                                 g_context, 
-                                CL_MEM_READ_ONLY, //_WRITE,
+                                CL_MEM_READ_WRITE,
                                 input_size, 
                                 NULL, 
                                 &statusCL);
     CHECK_OPENCL_ERROR(statusCL , "clCreateBuffer(g_inputBuffer) failed!");
-    
+#endif
+
+    //g_pinnedBuffer = clCreateBuffer(
+    //                            g_context, 
+    //                            CL_MEM_READ_ONLY | CL_MEM_ALLOC_HOST_PTR,
+    //                            input_size, 
+    //                            NULL, 
+    //                            &statusCL);
+    //CHECK_OPENCL_ERROR(statusCL , "clCreateBuffer(g_pinnedBuffer) failed!");
+
     // Create buffer to store the output
     /*g_outputBuffer = clCreateBuffer(
                     g_context, 
@@ -617,17 +599,17 @@ int clConvert::encodeInit()
                     &statusCL);
     CHECK_OPENCL_ERROR(statusCL, "clCreateBuffer(g_outputBuffer) failed!");*/
     
-    g_blendBuffer = clCreateBuffer(
-                                g_context, 
-                                CL_MEM_READ_WRITE,
-                                input_size, 
-                                NULL, 
-                                &statusCL);
-    //CHECK_OPENCL_ERROR(statusCL , "clCreateBuffer(g_blendBuffer) failed!");
-	if(checkVal(statusCL, CL_SUCCESS, "clCreateBuffer(g_blendBuffer) failed!", true) == FAILURE)
-	{
-		g_blendBuffer = NULL;
-	}
+ //   g_blendBuffer = clCreateBuffer(
+ //                               g_context, 
+ //                               CL_MEM_READ_WRITE,
+ //                               input_size, 
+ //                               NULL, 
+ //                               &statusCL);
+ //   //CHECK_OPENCL_ERROR(statusCL , "clCreateBuffer(g_blendBuffer) failed!");
+	//if(checkVal(statusCL, CL_SUCCESS, "clCreateBuffer(g_blendBuffer) failed!", true) == FAILURE)
+	//{
+	//	g_blendBuffer = NULL;
+	//}
 
     return SUCCESS;
 }
@@ -640,48 +622,68 @@ int clConvert::encode(const uint8* srcPtr, uint32 srcSize, cl_mem dstBuffer)
 	size_t globalThreads[] = {iWidth, iHeight};
 	size_t localThreads[] = {localThreads_rgba_to_nv12_kernel[0],
 							 localThreads_rgba_to_nv12_kernel[1]};
-	
 
-	/*status = clEnqueueWriteBuffer(g_cmd_queue,
-		g_inputBuffer,
-		CL_TRUE,
-		0,
-		srcSize, //iWidth * iHeight * bpp_bytes,
-		srcPtr,
-		0,
-		NULL,
-		0);
-
-	CHECK_OPENCL_ERROR(status, "clEnqueueWriteBuffer() failed");*/
-	
+#ifdef USE_HOST_MEM
+	auto ptr = bufferMap.find(srcPtr);
+	if(ptr == bufferMap.end())
+	{
+		g_inputBuffer = clCreateBuffer(
+			g_context, 
+			CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR,
+			srcSize, 
+			(void*)srcPtr, 
+			&status);
+		CHECK_OPENCL_ERROR(status , "clCreateBuffer(g_inputBuffer) failed!");
+		bufferMap[srcPtr] = g_inputBuffer;
+		mLog->Log(L"Creating new buffer from 0x%X, size: %d\n", srcPtr, srcSize);
+	} else {
+		g_inputBuffer = ptr->second;
+	}
+#else
 	cl_event inMapEvt;
-	void *mapPtr = clEnqueueMapBuffer( g_cmd_queue,
-                        (cl_mem)g_inputBuffer,
-                        CL_TRUE, //CL_FALSE,
+	mapPtr = clEnqueueMapBuffer( g_cmd_queue,
+                        g_inputBuffer,
+						//g_pinnedBuffer,
+                        CL_TRUE, 
+						//CL_FALSE,
                         CL_MAP_WRITE,
                         0,
                         srcSize,
                         0,
                         NULL,
-                        &inMapEvt,
+                        NULL,//&inMapEvt,
                         &status);
-
-	status = clFlush(g_cmd_queue);
-	waitForEventAndRelease(&inMapEvt);
+	//sync at unmapping
+    //status = clFlush(g_cmd_queue);
+    //waitForEventAndRelease(&inMapEvt);
 
 	//copy to mapped buffer
 	memcpy(mapPtr, srcPtr, srcSize);
 
+	//I guess the whole point here is that it wouldn't be a blocked write, so no use?
+	//status = clEnqueueWriteBuffer(g_cmd_queue,
+	//	g_inputBuffer,
+	//	CL_TRUE, //blocking
+	//	0,
+	//	srcSize,
+	//	mapPtr, //mapped to g_pinnedBuffer
+	//	0,
+	//	NULL,
+	//	0);
+	//CHECK_OPENCL_ERROR(status, "clEnqueueWriteBuffer() failed");
+
 	cl_event unmapEvent;
 	status = clEnqueueUnmapMemObject(g_cmd_queue,
-									g_inputBuffer,
+									g_inputBuffer, 
+									//g_pinnedBuffer,
 									mapPtr,
 									0,
 									NULL,
 									&unmapEvent);
 	status = clFlush(g_cmd_queue);
 	waitForEventAndRelease(&unmapEvent);
-	
+#endif
+
 	g_outputBuffer = dstBuffer;
 	if(runRGBToNV12Kernel(globalThreads, localThreads, false))
 	{
@@ -689,20 +691,8 @@ int clConvert::encode(const uint8* srcPtr, uint32 srcSize, cl_mem dstBuffer)
 		return FAILURE;
 	}
 	g_outputBuffer = NULL;
+	//clFinish(g_cmd_queue);
 
-	/*status = clEnqueueReadBuffer(
-				g_cmd_queue, 
-				g_outputBuffer, 
-				CL_TRUE, 
-				0, 
-				g_output_size, 
-				dstPtr, 
-				0, 
-				NULL, 
-				0);
-	CHECK_OPENCL_ERROR(status, "clEnqueueReadBuffer() failed");*/
-	
-	
 	return SUCCESS;
 }
 

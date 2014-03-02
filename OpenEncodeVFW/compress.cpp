@@ -282,7 +282,7 @@ DWORD CodecInst::CompressFramesInfo(ICCOMPRESSFRAMES *icf)
 // handed off to other functions depending on the color space and settings
 
 DWORD CodecInst::Compress(ICCOMPRESS* icinfo, DWORD dwSize) {
-    
+    captureTimeStart(&mProfile, 4);
     out = (uint8 *)icinfo->lpOutput;
     in  = (uint8 *)icinfo->lpInput;
     BITMAPINFOHEADER *inhdr  = icinfo->lpbiInput;
@@ -363,7 +363,7 @@ DWORD CodecInst::Compress(ICCOMPRESS* icinfo, DWORD dwSize) {
     }
     outhdr->biCompression = FOURCC_OPEN;
 
-
+    captureTimeStop(&mProfile, 4);
     return (DWORD)ret_val;
 }
 
@@ -590,294 +590,230 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
     /**************************************************************************/
     /* Okay, now it's time to read/encode frame by frame                      */
     /**************************************************************************/
-    
-    //while (framenum < framecount)
+
+    cl_event inMapEvt;
+    cl_int   status = CL_SUCCESS;
+
+    inputSurface = encodeHandle->inputSurfaces[mFrameNum%MAX_INPUT_SURFACE];
+
+    /**********************************************************************/
+    /* Read the input file frame by frame                                 */
+    /**********************************************************************/
+    void* mapPtr = NULL;
+    if(!mUseCLConv)
     {
-        cl_event inMapEvt;
-        cl_int   status;
+        mapPtr = clEnqueueMapBuffer( encodeHandle->clCmdQueue,
+                                        (cl_mem)inputSurface,
+                                        CL_TRUE, //CL_FALSE,
+                                        CL_MAP_READ | CL_MAP_WRITE,
+                                        0,
+                                        hostPtrSize,
+                                        0,
+                                        NULL,
+                                        &inMapEvt,
+                                        &status);
 
-        inputSurface = encodeHandle->inputSurfaces[mFrameNum%MAX_INPUT_SURFACE];
+        status = clFlush(encodeHandle->clCmdQueue);
+        waitForEvent(inMapEvt);
+        status = clReleaseEvent(inMapEvt);
+    }
 
-        /**********************************************************************/
-        /* Read the input file frame by frame                                 */
-        /**********************************************************************/
-
-        void* mapPtr = NULL;
-
-        if(!mUseCLConv)
+    /**********************************************************************/
+    /* Convert input buffer to something VCE can eat aka NV12             */
+    /**********************************************************************/
+    captureTimeStart(&mProfile, 2);
+    bool convertFail = false;
+    if(mFormat == 32 || mFormat == 24)
+    {
+        if(mUseCLConv)
         {
-            mapPtr = clEnqueueMapBuffer( encodeHandle->clCmdQueue,
-                                            (cl_mem)inputSurface,
-                                            CL_TRUE, //CL_FALSE,
-                                            CL_MAP_READ | CL_MAP_WRITE,
-                                            0,
-                                            hostPtrSize,
-                                            0,
-                                            NULL,
-                                            &inMapEvt,
-                                            &status);
-
-            status = clFlush(encodeHandle->clCmdQueue);
-            waitForEvent(inMapEvt);
-            status = clReleaseEvent(inMapEvt);
-        }
-        
-        /**********************************************************************/
-        /* Convert input buffer to something VCE can eat aka NV12             */
-        /**********************************************************************/
-        captureTimeStart(&mProfile, 2);
-        bool convertFail = false;
-        if(mFormat == 32 || mFormat == 24)
-        {
-            if(mUseCLConv)
-            {
-                uint32 srcSize = pConfig->width * pConfig->height * (mFormat / 8);
-                //if(mConfigTable[L"blend"] == 1 && mFrameNum > 0)
-                //	convertFail = mCLConvert->blendAndEncode(buffer2, srcSize, inData, srcSize,(uint8*)mapPtr, hostPtrSize) != 0;
-                //else
-                    //convertFail = mCLConvert->encode(inData, srcSize, (uint8*)mapPtr, hostPtrSize) != 0;
-                convertFail = mCLConvert->encode(inData, srcSize, (cl_mem)inputSurface) != 0;
-            }
-            else
-                RGBtoNV12 (inData, (uint8 *)mapPtr, mFormat/8, 1, pConfig->width, pConfig->height, alignedSurfaceWidth);
-        }
-        else if(mFormat == 12 && (mCompression == FOURCC_NV12 || mCompression == FOURCC_YV12))
-        {
-            if(mConfigTable[L"YV12AsNV12"] == 1 || mCompression == FOURCC_NV12)
-                convertFail = !nv12ToNV12Aligned(inData, pConfig->height, pConfig->width, alignedSurfaceWidth, (int8 *)mapPtr);
-            else
-                convertFail = !yv12ToNV12(inData, pConfig->height, pConfig->width, alignedSurfaceWidth, (int8 *)mapPtr);
+            uint32 srcSize = pConfig->width * pConfig->height * (mFormat / 8);
+            //if(mConfigTable[L"blend"] == 1 && mFrameNum > 0)
+            //	convertFail = mCLConvert->blendAndEncode(buffer2, srcSize, inData, srcSize,(uint8*)mapPtr, hostPtrSize) != 0;
+            //else
+                //convertFail = mCLConvert->encode(inData, srcSize, (uint8*)mapPtr, hostPtrSize) != 0;
+            convertFail = mCLConvert->encode(inData, srcSize, (cl_mem)inputSurface) != 0;
         }
         else
-        {
-            //Unmap buffer and goto fail
-            convertFail = true;
-        }
-        
-        captureTimeStop(&mProfile, 2);
-
-        if(!mUseCLConv && mapPtr)
-        {
-            cl_event unmapEvent;
-            status = clEnqueueUnmapMemObject(encodeHandle->clCmdQueue,
-                                            (cl_mem)inputSurface,
-                                            mapPtr,
-                                            0,
-                                            NULL,
-                                            &unmapEvent);
-            status = clFlush(encodeHandle->clCmdQueue);
-            waitForEvent(unmapEvent);
-            status = clReleaseEvent(unmapEvent);
-        }
-
-        if(convertFail)
-            goto fail;
-
-        /**********************************************************************/
-        /* use the input surface buffer as our Picture                        */
-        /**********************************************************************/
-        
-        encodeTaskInputBufferList[0].bufferType = OVE_BUFFER_TYPE_PICTURE;
-        encodeTaskInputBufferList[0].buffer.pPicture =  (OVE_SURFACE_HANDLE) inputSurface;
-
-        /**********************************************************************/
-        /* Setup the picture parameters                                       */
-        /**********************************************************************/
-        memset(&pictureParameter, 0, sizeof(OVE_ENCODE_PARAMETERS_H264));
-        pictureParameter.size = sizeof(OVE_ENCODE_PARAMETERS_H264);
-        pictureParameter.flags.value = 0;
-        pictureParameter.flags.flags.reserved = 0;
-        pictureParameter.insertSPS = (OVE_BOOL)(mFrameNum == 0)?true:false;
-        pictureParameter.pictureStructure = OVE_PICTURE_STRUCTURE_H264_FRAME;
-        pictureParameter.forceRefreshMap = (OVE_BOOL)true;
-        pictureParameter.forceIMBPeriod = 0;
-        //Force keyframe every 250 frames (like x264)
-        if(mConfigTable[L"IDRframes"] > 0)
-            pictureParameter.forcePicType = (mFrameNum % mConfigTable[L"IDRframes"] == 0) ? OVE_PICTURE_TYPE_H264_IDR : OVE_PICTURE_TYPE_H264_NONE;
+            RGBtoNV12 (inData, (uint8 *)mapPtr, mFormat/8, 1, pConfig->width, pConfig->height, alignedSurfaceWidth);
+    }
+    else if(mFormat == 12 && (mCompression == FOURCC_NV12 || mCompression == FOURCC_YV12))
+    {
+        if(mConfigTable[L"YV12AsNV12"] == 1 || mCompression == FOURCC_NV12)
+            convertFail = !nv12ToNV12Aligned(inData, pConfig->height, pConfig->width, alignedSurfaceWidth, (int8 *)mapPtr);
         else
-            pictureParameter.forcePicType = OVE_PICTURE_TYPE_H264_NONE;
+            convertFail = !yv12ToNV12(inData, pConfig->height, pConfig->width, alignedSurfaceWidth, (int8 *)mapPtr);
+    }
+    else
+    {
+        //Unmap buffer and goto fail
+        convertFail = true;
+    }
 
-        //framenum++;
+    captureTimeStop(&mProfile, 2);
 
-        /**********************************************************************/
-        /* encode a single picture.                                           */
-        /**********************************************************************/
+    if(!mUseCLConv && mapPtr)
+    {
+        cl_event unmapEvent;
+        status = clEnqueueUnmapMemObject(encodeHandle->clCmdQueue,
+                                        (cl_mem)inputSurface,
+                                        mapPtr,
+                                        0,
+                                        NULL,
+                                        &unmapEvent);
+        status = clFlush(encodeHandle->clCmdQueue);
+        waitForEvent(unmapEvent);
+        status = clReleaseEvent(unmapEvent);
+    }
+    if(convertFail)
+        goto fail;
 
-        /**********************************************************************/
-        /* Start the timer before calling VCE for frame encode                */
-        /**********************************************************************/
-        captureTimeStart(&mProfile,0);
-        res = OVEncodeTask(session,
-                            numEncodeTaskInputBuffers,
-                            encodeTaskInputBufferList,
-                            &pictureParameter,
-                            &iTaskID,
-                            numEventInWaitList,
-                            NULL,
-                            &eventRunVideoProgram);
-        if (!res) 
-        {
-            Log(L"\nOVEncodeTask returned error %fd\n", res);
-            //return false;
-            ret = false;
-            goto fail;
-        }
+    /**********************************************************************/
+    /* use the input surface buffer as our Picture                        */
+    /**********************************************************************/
+        
+    encodeTaskInputBufferList[0].bufferType = OVE_BUFFER_TYPE_PICTURE;
+    encodeTaskInputBufferList[0].buffer.pPicture =  (OVE_SURFACE_HANDLE) inputSurface;
+
+    /**********************************************************************/
+    /* Setup the picture parameters                                       */
+    /**********************************************************************/
+    memset(&pictureParameter, 0, sizeof(OVE_ENCODE_PARAMETERS_H264));
+    pictureParameter.size = sizeof(OVE_ENCODE_PARAMETERS_H264);
+    pictureParameter.flags.value = 0;
+    pictureParameter.flags.flags.reserved = 0;
+    pictureParameter.insertSPS = (OVE_BOOL)(mFrameNum == 0)?true:false;
+    pictureParameter.pictureStructure = OVE_PICTURE_STRUCTURE_H264_FRAME;
+    pictureParameter.forceRefreshMap = (OVE_BOOL)true;
+    pictureParameter.forceIMBPeriod = 0;
+    //Force keyframe every 250 frames (like x264)
+    if(mConfigTable[L"IDRframes"] > 0)
+        pictureParameter.forcePicType = (mFrameNum % mConfigTable[L"IDRframes"] == 0) ? OVE_PICTURE_TYPE_H264_IDR : OVE_PICTURE_TYPE_H264_NONE;
+    else
+        pictureParameter.forcePicType = OVE_PICTURE_TYPE_H264_NONE;
+
+    //framenum++;
+
+    /**********************************************************************/
+    /* encode a single picture.                                           */
+    /**********************************************************************/
+
+    /**********************************************************************/
+    /* Start the timer before calling VCE for frame encode                */
+    /**********************************************************************/
+    captureTimeStart(&mProfile,0);
+    res = OVEncodeTask(session,
+                        numEncodeTaskInputBuffers,
+                        encodeTaskInputBufferList,
+                        &pictureParameter,
+                        &iTaskID,
+                        numEventInWaitList,
+                        NULL,
+                        &eventRunVideoProgram);
+    if (!res) 
+    {
+        Log(L"\nOVEncodeTask returned error %fd\n", res);
+        //return false;
+        ret = false;
+        goto fail;
+    }
          
-        /**********************************************************************/
-        /* Wait for Encode session completes                                  */
-        /**********************************************************************/
+    /**********************************************************************/
+    /* Wait for Encode session completes                                  */
+    /**********************************************************************/
 
-        err = clWaitForEvents(1, (cl_event *)&(eventRunVideoProgram));
-        if(err != CL_SUCCESS) 
+    err = clWaitForEvents(1, (cl_event *)&(eventRunVideoProgram));
+    if(err != CL_SUCCESS) 
+    {
+        Log(L"\nlWaitForEvents returned error %d\n", err);
+        //return false;
+        ret = false;
+        goto fail;
+    }
+    captureTimeStop(&mProfile,0);
+
+    /**********************************************************************/
+    /* Query output                                                       */
+    /**********************************************************************/
+    captureTimeStart(&mProfile,1);
+    numTaskDescriptionsReturned = 0;
+    memset(pTaskDescriptionList,0,sizeof(OVE_OUTPUT_DESCRIPTION)*numTaskDescriptionsRequested);
+    pTaskDescriptionList[0].size = sizeof(OVE_OUTPUT_DESCRIPTION);
+
+    do
+    {
+        res = OVEncodeQueryTaskDescription(session,
+                                            numTaskDescriptionsRequested,
+                                            &numTaskDescriptionsReturned,
+                                            pTaskDescriptionList);
+        if (!res)
         {
-            Log(L"\nlWaitForEvents returned error %d\n", err);
+            Log(L"\nOVEncodeQueryTaskDescription returned error %fd\n", err);
             //return false;
             ret = false;
             goto fail;
         }
-        captureTimeStop(&mProfile,0);
-        /**********************************************************************/
-        /* Query output                                                       */
-        /**********************************************************************/
-
-        numTaskDescriptionsReturned = 0;
-        memset(pTaskDescriptionList,0,sizeof(OVE_OUTPUT_DESCRIPTION)*numTaskDescriptionsRequested);
-        pTaskDescriptionList[0].size = sizeof(OVE_OUTPUT_DESCRIPTION);
-        captureTimeStart(&mProfile,1);
-        do
-        {
-            res = OVEncodeQueryTaskDescription(session,
-                                                numTaskDescriptionsRequested,
-                                                &numTaskDescriptionsReturned,
-                                                pTaskDescriptionList);
-            if (!res)
-            {
-                Log(L"\nOVEncodeQueryTaskDescription returned error %fd\n", err);
-                //return false;
-                ret = false;
-                goto fail;
-            }
             
-        } while(pTaskDescriptionList->status == OVE_TASK_STATUS_NONE);
-        captureTimeStop(&mProfile,1);
-        /**********************************************************************/
-        /*  Write compressed frame to the output                              */
-        /**********************************************************************/
+    } while(pTaskDescriptionList->status == OVE_TASK_STATUS_NONE);
+    captureTimeStop(&mProfile,1);
+    /**********************************************************************/
+    /*  Write compressed frame to the output                              */
+    /**********************************************************************/
         
-        //FIXME correct?
-        mCompressed_size = 0;
-        for(uint32 i=0;i<numTaskDescriptionsReturned;i++)
+    //FIXME correct?
+    mCompressed_size = 0;
+    captureTimeStart(&mProfile, 3);
+    for(uint32 i=0;i<numTaskDescriptionsReturned;i++)
+    {
+        if((pTaskDescriptionList[i].status == OVE_TASK_STATUS_COMPLETE) 
+            && pTaskDescriptionList[i].size_of_bitstream_data > 0)
         {
-            if((pTaskDescriptionList[i].status == OVE_TASK_STATUS_COMPLETE) 
-                && pTaskDescriptionList[i].size_of_bitstream_data > 0)
-            {
-                mCompressed_size += pTaskDescriptionList[i].size_of_bitstream_data;
-            }
+            mCompressed_size += pTaskDescriptionList[i].size_of_bitstream_data;
         }
+    }
 
-        uint8* finalBuffer = outData;
+    uint8* finalBuffer = outData;
 
-        //Requesting bigger buffer leads to corrupt video from Dxtory :( so disregard output buffer biSizeImage
-        if(!mWarnedBuggy && buf_size < mCompressed_size)
-        {
-            Log(L"Output buffer is too small: %d. Needs %d. Might crash now.\n", buf_size, mCompressed_size);
-            
+    //Requesting bigger buffer leads to corrupt video from Dxtory :( so disregard output buffer biSizeImage
+    if(!mWarnedBuggy && buf_size < mCompressed_size)
+    {
+        //TODO set prev buf size check and don't print this warning then?
+        Log(L"Output buffer is too small: %d (needs %d), but it is probably just previous output buffer size. "
+            L"Might crash now.\n",
+            buf_size, mCompressed_size);
+
 #if NO_BUGGY_APPS
-            prev = (uint8*)malloc(mCompressed_size); //FIXME Save currently encoded and send again in new Compress() call
-            finalBuffer = prev;
-            ret = false;
+        prev = (uint8*)malloc(mCompressed_size); //FIXME Save currently encoded and send again in new Compress() call
+        finalBuffer = prev;
+        ret = false;
 #else
-            mWarnedBuggy = true;
+        mWarnedBuggy = true;
 #endif
-        }
+    }
 
-        for(uint32 i=0;i<numTaskDescriptionsReturned;i++)
+    for(uint32 i=0;i<numTaskDescriptionsReturned;i++)
+    {
+        if((pTaskDescriptionList[i].status == OVE_TASK_STATUS_COMPLETE) 
+            && pTaskDescriptionList[i].size_of_bitstream_data > 0)
         {
-            if((pTaskDescriptionList[i].status == OVE_TASK_STATUS_COMPLETE) 
-                && pTaskDescriptionList[i].size_of_bitstream_data > 0)
-            {
-                //Copy to output buffer
-                
-                /// Getting keyframe from bitstream doesn't seem to work
-                //uint8 * p = (uint8*)pTaskDescriptionList[i].bitstream_data, *p_next;
-                //uint8* end = ((uint8*)pTaskDescriptionList[i].bitstream_data) + pTaskDescriptionList[i].size_of_bitstream_data;
+            //Copy to output buffer
+            //TODO Can output buffer be directly mapped to CL buffer?
+            memcpy(finalBuffer, (uint8*)pTaskDescriptionList[i].bitstream_data, pTaskDescriptionList[i].size_of_bitstream_data);
+            finalBuffer += pTaskDescriptionList[i].size_of_bitstream_data;
 
-                ////Log(L"Output: %d Format:%d  %08x %08x\n", buf_size, mFormat, ((int*)p)[0], ((int*)p)[1]);
-
-                ////Parse some h264 bitstream for keyframe flag
-                //
-                //while( p < end - 3 )
-                //{
-                //	if( p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x01 )
-                //	{
-                //		break;
-                //	}
-                //	p++;
-                //}
-
-                ///* Search end of NAL */
-                //p_next = p + 3;
-                //while( p_next < end - 3 )
-                //{
-                //	if( p_next[0] == 0x00 && p_next[1] == 0x00 && p_next[2] == 0x01 )
-                //	{
-                //		break;
-                //	}
-                //	p_next++;
-                //}
-
-                ///* Compute NAL size */
-                //int i_size = (int)(p_next - p - 3);
-
-                //int b_flush = 0;
-                //int b_start;
-
-
-                ////FIXME Hmm, only SPS and/or PPS nal types
-                ///* Nal start at p+3 with i_size length */
-                //mParser->nal_decode(p+3, i_size < 2048 ? i_size : 2048 ); //get SPS
-                //mParser->nal.p_payload = p+3;
-                //int i_type = mParser->nal.i_type;
-                //mParser->parse(&b_start);
-                ////mParser->nal_decode(p_next+3, i_size < 2048 ? i_size : 2048 );//get PPS
-                //mParser->b_key = mParser->h264.b_key;
-                //
-                //if( b_start && mParser->b_slice )
-                //{
-                //	b_flush = 1;
-                //	mParser->b_slice = 0;
-                //}
-
-                //if( mParser->nal.i_type >= NAL_SLICE && mParser->nal.i_type <= NAL_SLICE_IDR )
-                //{
-                //	mParser->b_slice = 1;
-                //}
-
-                //Log(L"nal %d: %d %d, Slice:%d\n", mFrameNum, i_type, mParser->nal.i_type, b_start);
-
-                //TODO Can output buffer be directly mapped to CL buffer?
-                memcpy(finalBuffer, (uint8*)pTaskDescriptionList[i].bitstream_data, pTaskDescriptionList[i].size_of_bitstream_data);
-                
-                //if(mRaw)
-                //	fwrite((uint8*)pTaskDescriptionList[i].bitstream_data, 1, pTaskDescriptionList[i].size_of_bitstream_data, mRaw);
-
-                finalBuffer += pTaskDescriptionList[i].size_of_bitstream_data;
-
-                res = OVEncodeReleaseTask( session, pTaskDescriptionList[i].taskID);
-            }
+            res = OVEncodeReleaseTask( session, pTaskDescriptionList[i].taskID);
         }
+    }
 
-        if(eventRunVideoProgram)
-            clReleaseEvent((cl_event) eventRunVideoProgram);
-    } /* End of read/encode/write loop*/
-    
+    if(eventRunVideoProgram)
+        clReleaseEvent((cl_event) eventRunVideoProgram);
+    captureTimeStop(&mProfile, 3);
 fail:
     /**************************************************************************/
     /* Free memory resources now that we're through with them.                */
     /**************************************************************************/
     free(encodeTaskInputBufferList);
-    
-    return status;
+    return status == CL_SUCCESS;
 }
 
 /** 

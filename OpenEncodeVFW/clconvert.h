@@ -2,6 +2,7 @@
 #define _CLCONVERT
 
 #include <string>
+#include <map>
 #include <OpenVideo\OVEncode.h>
 #include <OpenVideo\OVEncodeTypes.h>
 #include <cl\cl.h>
@@ -17,7 +18,7 @@
 #define CHECK_ALLOCATION(actual, msg) \
         if(actual == NULL) \
         { \
-            std::cout << "Location : " << __FILE__ << ":" << __LINE__<< std::endl; \
+            std::cerr << "Location : " << __FILE__ << ":" << __LINE__<< std::endl; \
             return FAILURE; \
         }
 
@@ -25,20 +26,20 @@
 #define CHECK_ERROR(actual, reference, msg) \
         if(actual != reference) \
         { \
-            std::cout << "Location : " << __FILE__ << ":" << __LINE__<< std::endl; \
+            std::cerr << "Location : " << __FILE__ << ":" << __LINE__<< std::endl; \
             return FAILURE; \
         }
 
 #define CHECK_OPENCL_ERROR(actual, msg) \
 	if(checkVal(actual, CL_SUCCESS, msg, true)) \
         { \
-            std::cout << "Location : " << __FILE__ << ":" << __LINE__<< std::endl; \
+            std::cerr << "Location : " << __FILE__ << ":" << __LINE__<< std::endl; \
             return FAILURE; \
         } 
 
 #define OPENCL_EXPECTED_ERROR(msg) \
         { \
-			std::cout<<"Expected Error: "<<msg<<std::endl;\
+            std::cerr<<"Expected Error: "<<msg<<std::endl;\
             return EXPECTED_FAILURE; \
         }
 
@@ -55,7 +56,7 @@ public:
 		iHeight(height), oHeight(height), bpp_bytes(_bpp_bytes),
 		g_nv12_to_rgba_kernel(NULL), g_rgba_to_nv12_kernel(NULL),
 		g_nv12_to_rgb_kernel(NULL), g_rgb_to_nv12_kernel(NULL), g_rgb_blend_kernel(NULL), g_rgba_blend_kernel(NULL),
-		host_ptr(NULL), g_output_size(0), g_inputBuffer(NULL), g_outputBuffer(NULL), g_blendBuffer(NULL),
+		host_ptr(NULL), g_output_size(0), g_inputBuffer(NULL), g_pinnedBuffer(NULL), g_outputBuffer(NULL), g_blendBuffer(NULL),
 		g_cmd_queue(cmdqueue), g_program(NULL), g_decoded_frame(NULL), mLog(log),
 		mOptimize(opt), mColSpaceLimit(limit)
 	{
@@ -97,8 +98,11 @@ private:
 	unsigned int		bpp_bytes;
 	void				*host_ptr;
 	void 				*g_decoded_frame;
+	void				*mapPtr;
+	std::map<const uint8*, cl_mem>	bufferMap;
 	int					g_output_size;
 	cl_mem				g_inputBuffer;
+	cl_mem				g_pinnedBuffer;
 	cl_mem				g_outputBuffer;
 	cl_mem				g_blendBuffer;
 	cl_context			g_context;
