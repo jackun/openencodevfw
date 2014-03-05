@@ -27,18 +27,19 @@ float3 RGBtoYUV(float R, float G, float B)
 
 float3 RGBtoYUV_2(float R, float G, float B)
 {
-	//float Y = (0.257f * R) + (0.504f * G) + (0.098f * B) + 16.f;
-	//float V = (0.439f * R) - (0.368f * G) - (0.071f * B) + 128.f;
-	//float U = -(0.148f * R) - (0.291f * G) + (0.439f * B) + 128.f;
 #ifdef COLORSPACE_LIMIT
 	R = 16.f + R * UpperLimit;
 	G = 16.f + G * UpperLimit;
 	B = 16.f + B * UpperLimit;
 #endif
+	float Y = (0.257f * R) + (0.504f * G) + (0.098f * B) + 16.f;
+	float V = (0.439f * R) - (0.368f * G) - (0.071f * B) + 128.f;
+	float U = -(0.148f * R) - (0.291f * G) + (0.439f * B) + 128.f;
+
 	//http://softpixel.com/~cwright/programming/colorspace/yuv/ still reddish
-	float Y = R *  .299000f + G *  .587000f + B *  .114000f;
-	float U = R * -.168736f + G * -.331264f + B *  .500000f + 128.f;
-	float V = R *  .500000f + G * -.418688f + B * -.081312f + 128.f;
+	//float Y = R *  .299000f + G *  .587000f + B *  .114000f;
+	//float U = R * -.168736f + G * -.331264f + B *  .500000f + 128.f;
+	//float V = R *  .500000f + G * -.418688f + B * -.081312f + 128.f;
 
 	//#2
 	//float Y = 0.299f * R + 0.587f * G + 0.114f * B;
