@@ -15,6 +15,15 @@
 #define BtoVCoeff	-18.285f * 256 + 0.5f
 #define UpperLimit	235.0f/255.0f
 
+//Taken from http://sourceforge.net/p/ffdshow-tryout/bugs/321/
+#define gammaR 1.1
+#define gammaG 1.1
+#define gammaB 1.1
+
+#define gY  1.0/(0.299*gammaR+0.587*gammaG+0.114*gammaB)
+#define gU  1.0/sqrt (gammaB / gammaG)
+#define gV  1.0/sqrt (gammaR / gammaG)
+
 // Based on http://www.poynton.com/notes/colour_and_gamma/ColorFAQ.html#RTFToC30
 // I dunno, all pink
 float3 RGBtoYUV(float R, float G, float B)
@@ -35,6 +44,12 @@ float3 RGBtoYUV_2(float R, float G, float B)
 	float Y = (0.257f * R) + (0.504f * G) + (0.098f * B) + 16.f;
 	float V = (0.439f * R) - (0.368f * G) - (0.071f * B) + 128.f;
 	float U = -(0.148f * R) - (0.291f * G) + (0.439f * B) + 128.f;
+
+	//Taken from http://sourceforge.net/p/ffdshow-tryout/bugs/321/
+	//Possibly incorrect
+	Y = 255.0*pow((Y/255.0),gY);
+	U = 255.0*pow((U/255.0),gU);
+	V = 255.0*pow((V/255.0),gV);
 
 	//http://softpixel.com/~cwright/programming/colorspace/yuv/ still reddish
 	//float Y = R *  .299000f + G *  .587000f + B *  .114000f;
@@ -74,7 +89,7 @@ __kernel void RGBAtoNV12(__global uchar4 *input,
 	float B = convert_float(rgba.s2);
 
 	float3 YUV = RGBtoYUV_2(R, G, B);
-
+	//Maybe two passes (Y and VU) is faster?
 	output[id.x + id.y * alignedWidth] = convert_uchar(YUV.s0 > 255 ? 255 : YUV.s0); //Y
 	output[alignedWidth * height + (id.y >> 1) * alignedWidth + (id.x >> 1) * 2] = convert_uchar(YUV.s2 > 255 ? 255 : YUV.s2); //V
 	output[alignedWidth * height + (id.y >> 1) * alignedWidth + (id.x >> 1) * 2 + 1] = convert_uchar(YUV.s1 > 255 ? 255 : YUV.s1); //U
