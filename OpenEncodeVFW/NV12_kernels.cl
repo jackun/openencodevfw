@@ -65,7 +65,7 @@ float2 toUV(float3 RGB)
                     (0.439f * RGB.x) - (0.368f * RGB.y) - (0.071f * RGB.z) + 128.f);
 }
 
-float2 toUV(float4 RGB)
+float2 toUV4(float4 RGB)
 {
     return (float2) (-(0.148f * RGB.x) - (0.291f * RGB.y) + (0.439f * RGB.z) + 128.f,
                     (0.439f * RGB.x) - (0.368f * RGB.y) - (0.071f * RGB.z) + 128.f);
@@ -89,7 +89,7 @@ __kernel void RGBAtoNV12(__global uchar4 *input,
 	//float3 YUV = RGBtoYUV_2(rgba.x, rgba.y, rgba.z);
 
 	//uchar Y = 16 + ((32768 + RtoYCoeff * rgba.x + GtoYCoeff * rgba.y + BtoYCoeff * rgba.z) / 65536);
-	float Y = (0.257f * R) + (0.504f * G) + (0.098f * B) + 16.f;
+	float Y = (0.257f * rgba.x) + (0.504f * rgba.y) + (0.098f * rgba.z) + 16.f;
 
 	//should use convert_uchar_sat_rte but that seems to slow shit down
 	output[id.x + id.y * alignedWidth] = Y; //convert_uchar_sat_rte(Y);
@@ -137,10 +137,10 @@ __kernel void RGBAtoNV12_UV(__global uchar4 *input,
     //                      (0.439f * RGB.x) - (0.368f * RGB.y) - (0.071f * RGB.z) + 128.f);
 
     //2
-    float2 UV00 = toUV(RGB00);
-    float2 UV01 = toUV(RGB01);
-    float2 UV10 = toUV(RGB10);
-    float2 UV11 = toUV(RGB11);
+    float2 UV00 = toUV4(RGB00);
+    float2 UV01 = toUV4(RGB01);
+    float2 UV10 = toUV4(RGB10);
+    float2 UV11 = toUV4(RGB11);
     float2 UV = (2.f + UV00 + UV01 + UV10 + UV11) / 4.f;
     
     //3
@@ -193,7 +193,11 @@ __kernel void RGBtoNV12(__global uchar *input,
     //float G = convert_float(rgb.s1);
     //float B = convert_float(rgb.s2);
 	//float3 YUV = RGBtoYUV_2(R,G,B);
+#ifdef USE_FLOAT3
 	uchar Y = 16 + ((32768 + RtoYCoeff * rgb.x + GtoYCoeff * rgb.y + BtoYCoeff * rgb.z) / 65536);
+#else
+	float Y = (0.257f * rgb.x) + (0.504f * rgb.y) + (0.098f * rgb.z) + 16.f;
+#endif
                 
     output[id.x + id.y * alignedWidth] = Y;
     //output[alignedWidth * height + (id.y >> 1) * alignedWidth + (id.x >> 1) * 2] = convert_uchar(YUV.s2 > 255 ? 255 : YUV.s2) ; //V
