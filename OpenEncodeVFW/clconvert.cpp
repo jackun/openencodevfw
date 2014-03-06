@@ -197,7 +197,9 @@ void clConvert::Cleanup_OpenCL()
     if( g_blendBuffer ) {clReleaseMemObject( g_blendBuffer ); g_blendBuffer = NULL;}
     if( g_nv12_to_rgba_kernel ) {clReleaseKernel( g_nv12_to_rgba_kernel ); g_nv12_to_rgba_kernel = NULL;}
     if( g_rgba_to_nv12_kernel ) {clReleaseKernel( g_rgba_to_nv12_kernel ); g_rgba_to_nv12_kernel = NULL;}
+	if( g_rgba_to_uv_kernel ) {clReleaseKernel( g_rgba_to_uv_kernel ); g_rgba_to_uv_kernel = NULL;}
     if( g_rgb_to_nv12_kernel ) {clReleaseKernel( g_rgb_to_nv12_kernel ); g_rgb_to_nv12_kernel = NULL;}
+	if( g_rgb_to_uv_kernel ) {clReleaseKernel( g_rgb_to_uv_kernel ); g_rgb_to_uv_kernel = NULL;}
     if( g_rgb_blend_kernel ) {clReleaseKernel( g_rgb_blend_kernel ); g_rgb_blend_kernel = NULL;}
     if( g_rgba_blend_kernel ) {clReleaseKernel( g_rgba_blend_kernel ); g_rgba_blend_kernel = NULL;}
     if( g_program ) {clReleaseProgram( g_program ); g_program = NULL;}
@@ -371,6 +373,12 @@ int clConvert::createKernels()
 	g_rgb_to_nv12_kernel = clCreateKernel(g_program, "RGBtoNV12", &status);
     CHECK_OPENCL_ERROR(status, "clCreateKernel(RGBtoNV12) failed!");
 
+	g_rgba_to_uv_kernel = clCreateKernel(g_program, "RGBAtoNV12_UV", &status);
+    CHECK_OPENCL_ERROR(status, "clCreateKernel(RGBAtoNV12_UV) failed!");
+
+	g_rgb_to_uv_kernel = clCreateKernel(g_program, "RGBtoNV12_UV", &status);
+    CHECK_OPENCL_ERROR(status, "clCreateKernel(RGBtoNV12_UV) failed!");
+
 	g_rgb_blend_kernel = clCreateKernel(g_program, "RGBBlend", &status);
     CHECK_OPENCL_ERROR(status, "clCreateKernel(RGBtoNV12) failed!");
 
@@ -455,18 +463,11 @@ bool clConvert::runNV12ToRGBKernel(
 }
 
 bool clConvert::runRGBToNV12Kernel(
+						cl_kernel kernel,
 						size_t globalThreads[2],
 						size_t localThreads[2], bool blend)
 {
     cl_int status = 0;
-	cl_kernel kernel;
-
-	if(bpp_bytes == 4)
-		kernel = blend ? g_rgba_blend_kernel : g_rgba_to_nv12_kernel;
-	else if(bpp_bytes == 3)
-		kernel = blend ? g_rgb_blend_kernel : g_rgb_to_nv12_kernel;
-	else
-		return false;
 
     // Set up kernel arguments
     status = clSetKernelArg(
@@ -474,7 +475,7 @@ bool clConvert::runRGBToNV12Kernel(
                 0, 
                 sizeof(cl_mem), 
                 &g_inputBuffer);
-    CHECK_OPENCL_ERROR(status, "clSetKernelArg(g_outputBuffer) failed!\n");
+    CHECK_OPENCL_ERROR(status, "clSetKernelArg(g_inputBuffer) failed!\n");
 
 
     status = clSetKernelArg(
@@ -482,7 +483,7 @@ bool clConvert::runRGBToNV12Kernel(
                 1, 
                 sizeof(cl_mem), 
                 &g_outputBuffer);
-    CHECK_OPENCL_ERROR(status, "clSetKernelArg(g_inputBuffer) failed!");
+    CHECK_OPENCL_ERROR(status, "clSetKernelArg(g_outputBuffer) failed!");
 
 	status = clSetKernelArg(
                 kernel, 
@@ -510,7 +511,7 @@ bool clConvert::runRGBToNV12Kernel(
                 0, 
                 0, 
                 &ndrEvt);
-    CHECK_OPENCL_ERROR(status, "clEnqueueNDRangeKernel(g_rgb(a)_to_nv12_kernel) failed!");
+    CHECK_OPENCL_ERROR(status, "clEnqueueNDRangeKernel failed!");
 
     status = clFlush(g_cmd_queue);
     CHECK_OPENCL_ERROR(status, "clFlush failed");
@@ -684,12 +685,37 @@ int clConvert::encode(const uint8* srcPtr, uint32 srcSize, cl_mem dstBuffer)
 	waitForEventAndRelease(&unmapEvent);
 #endif
 
+	cl_kernel kernel;
+
+	if(bpp_bytes == 4)
+		kernel = g_rgba_to_nv12_kernel;
+	else //if(bpp_bytes == 3)
+		kernel = g_rgb_to_nv12_kernel;
+
 	g_outputBuffer = dstBuffer;
-	if(runRGBToNV12Kernel(globalThreads, localThreads, false))
+	if(runRGBToNV12Kernel(kernel, globalThreads, localThreads, false))
 	{
 		mLog->Log(L"runRGB(A)ToNV12Kernel failed!\n");
 		return FAILURE;
 	}
+
+	if(bpp_bytes == 4)
+		kernel = g_rgba_to_uv_kernel;
+	else //if(bpp_bytes == 3)
+		kernel = g_rgb_to_uv_kernel;
+
+	//encoder should be feeding divideable by 16 frames anyway
+	globalThreads[0] = (globalThreads[0] >> 1);
+	//globalThreads[0] -= globalThreads[0] % 2;
+	globalThreads[1] = (globalThreads[1] >> 1);
+	//globalThreads[1] -= globalThreads[1] % 2;
+	//mLog->Log(L"GID: %dx%d\n", globalThreads[0],globalThreads[1]);
+	if(runRGBToNV12Kernel(kernel, globalThreads, localThreads, false))
+	{
+		mLog->Log(L"runRGB(A)ToNV12_UVKernel failed!\n");
+		return FAILURE;
+	}
+
 	g_outputBuffer = NULL;
 	//clFinish(g_cmd_queue);
 
@@ -732,7 +758,7 @@ int clConvert::blendAndEncode(const uint8* srcPtr1, uint32 srcSize1,
 
 	CHECK_OPENCL_ERROR(status, "clEnqueueWriteBuffer() failed");
 
-	if(runRGBToNV12Kernel(globalThreads, localThreads, true))
+	if(runRGBToNV12Kernel(bpp_bytes == 4 ? g_rgba_blend_kernel : g_rgb_blend_kernel, globalThreads, localThreads, true))
 	{
 		mLog->Log(L"runRGB(A)ToNV12Kernel failed!\n");
 		return FAILURE;

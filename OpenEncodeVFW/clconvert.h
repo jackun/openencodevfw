@@ -113,7 +113,9 @@ private:
 	cl_kernel           g_nv12_to_rgba_kernel;
 	cl_kernel           g_nv12_to_rgb_kernel;
 	cl_kernel           g_rgba_to_nv12_kernel;
+	cl_kernel           g_rgba_to_uv_kernel;
 	cl_kernel           g_rgb_to_nv12_kernel;
+	cl_kernel           g_rgb_to_uv_kernel;
 	cl_kernel           g_rgb_blend_kernel;
 	cl_kernel           g_rgba_blend_kernel;
 	size_t localThreads_nv12_to_rgba_kernel[2];// = {1, 1};
@@ -135,6 +137,7 @@ private:
 						size_t globalThreads[2],
 						size_t localThreads[2]);
 	bool runRGBToNV12Kernel(
+						cl_kernel kernel,
 						size_t globalThreads[2],
 						size_t localThreads[2], bool blend);
 	template<typename T>
