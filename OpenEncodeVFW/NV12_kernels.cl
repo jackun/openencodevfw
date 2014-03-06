@@ -21,10 +21,10 @@
 #define gU  1.0/sqrt (gammaB / gammaG)
 #define gV  1.0/sqrt (gammaR / gammaG)
 
-#define USE_FLOAT3
-#define USE_FLOAT4
+//#define USE_FLOAT3
+//#define USE_FLOAT4
 
-float3 RGBtoYUV_2(float R, float G, float B)
+float3 RGBtoYUV_2(uchar R, uchar G, uchar B)
 {
 #ifdef COLORSPACE_LIMIT
 	R = 16.f + R * UpperLimit;
@@ -59,6 +59,18 @@ float3 RGBtoYUV_2(float R, float G, float B)
 	return (float3)(Y,U,V);
 }
 
+float2 toUV(float3 RGB)
+{
+    return (float2) (-(0.148f * RGB.x) - (0.291f * RGB.y) + (0.439f * RGB.z) + 128.f,
+                    (0.439f * RGB.x) - (0.368f * RGB.y) - (0.071f * RGB.z) + 128.f);
+}
+
+float2 toUV(float4 RGB)
+{
+    return (float2) (-(0.148f * RGB.x) - (0.291f * RGB.y) + (0.439f * RGB.z) + 128.f,
+                    (0.439f * RGB.x) - (0.368f * RGB.y) - (0.071f * RGB.z) + 128.f);
+}
+
 // Convert RGBA format to NV12
 __kernel void RGBAtoNV12(__global uchar4 *input,
 						__global uchar *output,
@@ -74,10 +86,7 @@ __kernel void RGBAtoNV12(__global uchar4 *input,
 	uchar4 rgba = input[id.x + width * id.y];
 #endif
 
-	//float R = convert_float(rgba.s0);
-	//float G = convert_float(rgba.s1);
-	//float B = convert_float(rgba.s2);
-	//float3 YUV = RGBtoYUV_2(R, G, B);
+	//float3 YUV = RGBtoYUV_2(rgba.x, rgba.y, rgba.z);
 
 	uchar Y = 16 + ((32768 + RtoYCoeff * rgba.x + GtoYCoeff * rgba.y + BtoYCoeff * rgba.z) / 65536);
 
@@ -115,15 +124,15 @@ __kernel void RGBAtoNV12_UV(__global uchar4 *input,
 //slower (on cpu atleast)
 #ifdef USE_FLOAT4
     //1,2
-    //float3 RGB00 = convert_float3(rgb00);
-    //float3 RGB01 = convert_float3(rgb01);
-    //float3 RGB10 = convert_float3(rgb10);
-    //float3 RGB11 = convert_float3(rgb11);
+    float4 RGB00 = convert_float4(rgb00);
+    float4 RGB01 = convert_float4(rgb01);
+    float4 RGB10 = convert_float4(rgb10);
+    float4 RGB11 = convert_float4(rgb11);
 
     //1
-    //float3 RGB = (RGB00 + RGB01 + RGB10 + RGB11) * 0.25f
-    //float V =  (0.439f * RGB.x) - (0.368f * RGB.y) - (0.071f * RGB.z) + 128.f;
-    //float U = -(0.148f * RGB.x) - (0.291f * RGB.y) + (0.439f * RGB.z) + 128.f;
+    float4 RGB = (RGB00 + RGB01 + RGB10 + RGB11) * 0.25f
+    float2 UV = (float2)(-(0.148f * RGB.x) - (0.291f * RGB.y) + (0.439f * RGB.z) + 128.f,
+                          (0.439f * RGB.x) - (0.368f * RGB.y) - (0.071f * RGB.z) + 128.f);
 
     //2
     //float2 UV00 = toUV(RGB00);
@@ -133,37 +142,27 @@ __kernel void RGBAtoNV12_UV(__global uchar4 *input,
     //float2 UV = (2.f + UV00 + UV01 + UV10 + UV11) / 4.f;
     
     //3
-    float2 UV00 = 128 + ((32768 + RtoUVCoeff * rgb00.x + GtoUVCoeff * rgb00.y + BtoUVCoeff * rgb00.z) / 65536);
-    float2 UV01 = 128 + ((32768 + RtoUVCoeff * rgb01.x + GtoUVCoeff * rgb01.y + BtoUVCoeff * rgb01.z) / 65536);
-    float2 UV10 = 128 + ((32768 + RtoUVCoeff * rgb10.x + GtoUVCoeff * rgb10.y + BtoUVCoeff * rgb10.z) / 65536);
-    float2 UV11 = 128 + ((32768 + RtoUVCoeff * rgb11.x + GtoUVCoeff * rgb11.y + BtoUVCoeff * rgb11.z) / 65536);
+    //float2 UV00 = 128 + ((32768 + RtoUVCoeff * rgb00.x + GtoUVCoeff * rgb00.y + BtoUVCoeff * rgb00.z) / 65536);
+    //float2 UV01 = 128 + ((32768 + RtoUVCoeff * rgb01.x + GtoUVCoeff * rgb01.y + BtoUVCoeff * rgb01.z) / 65536);
+    //float2 UV10 = 128 + ((32768 + RtoUVCoeff * rgb10.x + GtoUVCoeff * rgb10.y + BtoUVCoeff * rgb10.z) / 65536);
+    //float2 UV11 = 128 + ((32768 + RtoUVCoeff * rgb11.x + GtoUVCoeff * rgb11.y + BtoUVCoeff * rgb11.z) / 65536);
 	//TODO convert_uchar2 slows this down?
-    uchar2 UV = convert_uchar2((2 + UV00 + UV01 + UV10 + UV11) / 4);
+    //uchar2 UV = convert_uchar2((2 + UV00 + UV01 + UV10 + UV11) / 4);
     
 #else
-    // gets reddish
-    float R00 = convert_float(rgb00.x);
-    float G00 = convert_float(rgb00.y);
-    float B00 = convert_float(rgb00.z);
-    
-    float R01 = convert_float(rgb01.x);
-    float G01 = convert_float(rgb01.y);
-    float B01 = convert_float(rgb01.z);
-    
-    float R10 = convert_float(rgb10.x);
-    float G10 = convert_float(rgb10.y);
-    float B10 = convert_float(rgb10.z);
-    
-    float R11 = convert_float(rgb11.x);
-    float G11 = convert_float(rgb11.y);
-    float B11 = convert_float(rgb11.z);
-    
-    float R = (R00 + R01 + R10 + R11) * 0.25f;
-    float G = (B00 + G01 + G10 + G11) * 0.25f;
-    float B = (B00 + B01 + B10 + B11) * 0.25f;
+    float2 UV00 =  (float2)(-(0.148f * rgb00.x) - (0.291f * rgb00.y) + (0.439f * rgb00.z) + 128.f,
+                             (0.439f * rgb00.x) - (0.368f * rgb00.y) - (0.071f * rgb00.z) + 128.f);
 
-    float V =  (0.439f * R) - (0.368f * G) - (0.071f * B) + 128.f;
-    float U = -(0.148f * R) - (0.291f * G) + (0.439f * B) + 128.f;
+    float2 UV01 =  (float2)(-(0.148f * rgb01.x) - (0.291f * rgb01.y) + (0.439f * rgb01.z) + 128.f,
+                             (0.439f * rgb01.x) - (0.368f * rgb01.y) - (0.071f * rgb01.z) + 128.f);
+
+    float2 UV10 =  (float2)(-(0.148f * rgb10.x) - (0.291f * rgb10.y) + (0.439f * rgb10.z) + 128.f,
+                             (0.439f * rgb10.x) - (0.368f * rgb10.y) - (0.071f * rgb10.z) + 128.f);
+
+    float2 UV11 =  (float2)(-(0.148f * rgb11.x) - (0.291f * rgb11.y) + (0.439f * rgb11.z) + 128.f,
+                             (0.439f * rgb11.x) - (0.368f * rgb11.y) - (0.071f * rgb11.z) + 128.f);
+
+    float2 UV =  (2 + UV00 + UV01 + UV10 + UV11) / 4;
 #endif
 
 	//I dunno, mplayer likes UV, VCE likes VU (or something)
@@ -252,29 +251,19 @@ __kernel void RGBtoNV12_UV(__global uchar *input,
     uchar2 UV = convert_uchar2((2 + UV00 + UV01 + UV10 + UV11) / 4);
     
 #else
-    // gets reddish
-    float R00 = convert_float(rgb00.x);
-    float G00 = convert_float(rgb00.y);
-    float B00 = convert_float(rgb00.z);
-    
-    float R01 = convert_float(rgb01.x);
-    float G01 = convert_float(rgb01.y);
-    float B01 = convert_float(rgb01.z);
-    
-    float R10 = convert_float(rgb10.x);
-    float G10 = convert_float(rgb10.y);
-    float B10 = convert_float(rgb10.z);
-    
-    float R11 = convert_float(rgb11.x);
-    float G11 = convert_float(rgb11.y);
-    float B11 = convert_float(rgb11.z);
-    
-    float R = (R00 + R01 + R10 + R11) * 0.25f;
-    float G = (B00 + G01 + G10 + G11) * 0.25f;
-    float B = (B00 + B01 + B10 + B11) * 0.25f;
+    float2 UV00 =  (float2)(-(0.148f * rgb00.x) - (0.291f * rgb00.y) + (0.439f * rgb00.z) + 128.f,
+                             (0.439f * rgb00.x) - (0.368f * rgb00.y) - (0.071f * rgb00.z) + 128.f);
 
-    float V =  (0.439f * R) - (0.368f * G) - (0.071f * B) + 128.f;
-    float U = -(0.148f * R) - (0.291f * G) + (0.439f * B) + 128.f;
+    float2 UV01 =  (float2)(-(0.148f * rgb01.x) - (0.291f * rgb01.y) + (0.439f * rgb01.z) + 128.f,
+                             (0.439f * rgb01.x) - (0.368f * rgb01.y) - (0.071f * rgb01.z) + 128.f);
+
+    float2 UV10 =  (float2)(-(0.148f * rgb10.x) - (0.291f * rgb10.y) + (0.439f * rgb10.z) + 128.f,
+                             (0.439f * rgb10.x) - (0.368f * rgb10.y) - (0.071f * rgb10.z) + 128.f);
+
+    float2 UV11 =  (float2)(-(0.148f * rgb11.x) - (0.291f * rgb11.y) + (0.439f * rgb11.z) + 128.f,
+                             (0.439f * rgb11.x) - (0.368f * rgb11.y) - (0.071f * rgb11.z) + 128.f);
+
+    float2 UV =  (2 + UV00 + UV01 + UV10 + UV11) / 4;
 #endif
 
 	//see RGBA_UV
