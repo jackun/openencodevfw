@@ -38,7 +38,7 @@
 #define IDC_LOG                         1035
 #define IDC_USE_OPENCL2                 1036
 #define IDC_IDR                         1037
-#define IDC_RC_LABEL2                   1038
+#define IDC_USE_OPENCL3                 1038
 
 // Next default values for new objects
 // 

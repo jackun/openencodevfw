@@ -149,59 +149,48 @@ int clConvert::checkVal(
         {
             //std::cout<<"Error: "<< message << " Error code : ";
             //std::cout << getOpenCLErrorCodeStr(input) << std::endl;
-			// TODO unicode vs ansi
-			mLog->Log(L"Error: %S Error code: %S\n", message.c_str(), getOpenCLErrorCodeStr(input));
+            // TODO unicode vs ansi
+            mLog->Log(L"Error: %S Error code: %S\n", message.c_str(), getOpenCLErrorCodeStr(input));
         }
         else
             //error(message);
-			mLog->Log(L"%S", message);
+            mLog->Log(L"%S", message);
         return FAILURE;
     }
 }
 
 int clConvert::waitForEventAndRelease(cl_event *event)
 {
-	cl_int status = CL_SUCCESS;
-	cl_int eventStatus = CL_QUEUED;
-	while(eventStatus != CL_COMPLETE)
-	{
-		status = clGetEventInfo(
-						*event, 
-						CL_EVENT_COMMAND_EXECUTION_STATUS, 
-						sizeof(cl_int),
-						&eventStatus,
-						NULL);
-		CHECK_OPENCL_ERROR(status, "clGetEventEventInfo Failed with Error Code:");
-	}
+    cl_int status = CL_SUCCESS;
+    cl_int eventStatus = CL_QUEUED;
+    while(eventStatus != CL_COMPLETE)
+    {
+        status = clGetEventInfo(
+                        *event, 
+                        CL_EVENT_COMMAND_EXECUTION_STATUS, 
+                        sizeof(cl_int),
+                        &eventStatus,
+                        NULL);
+        CHECK_OPENCL_ERROR(status, "clGetEventEventInfo Failed with Error Code:");
+    }
 
-	status = clReleaseEvent(*event);
-	CHECK_OPENCL_ERROR(status, "clReleaseEvent Failed with Error Code:");
+    status = clReleaseEvent(*event);
+    CHECK_OPENCL_ERROR(status, "clReleaseEvent Failed with Error Code:");
 
-	return SUCCESS;
+    return SUCCESS;
 }
 
 void clConvert::Cleanup_OpenCL()
 {
+    if( g_inputBuffer[0] ) {clReleaseMemObject( g_inputBuffer[0] ); g_inputBuffer[0] = NULL;}
+    if( g_inputBuffer[1] ) {clReleaseMemObject( g_inputBuffer[1] ); g_inputBuffer[1] = NULL;}
 
-#ifdef USE_HOST_MEM
-	g_inputBuffer = NULL;
-	auto it = bufferMap.begin();
-	for(;it != bufferMap.end(); it++)
-		clReleaseMemObject(it->second);
-#else
-    if( g_inputBuffer ) {clReleaseMemObject( g_inputBuffer ); g_inputBuffer = NULL;}
-#endif
-
-    if( g_pinnedBuffer ) {clReleaseMemObject( g_pinnedBuffer ); g_pinnedBuffer = NULL;}
     if( g_outputBuffer ) {clReleaseMemObject( g_outputBuffer ); g_outputBuffer = NULL;}
-    if( g_blendBuffer ) {clReleaseMemObject( g_blendBuffer ); g_blendBuffer = NULL;}
     if( g_nv12_to_rgba_kernel ) {clReleaseKernel( g_nv12_to_rgba_kernel ); g_nv12_to_rgba_kernel = NULL;}
     if( g_rgba_to_nv12_kernel ) {clReleaseKernel( g_rgba_to_nv12_kernel ); g_rgba_to_nv12_kernel = NULL;}
-	if( g_rgba_to_uv_kernel ) {clReleaseKernel( g_rgba_to_uv_kernel ); g_rgba_to_uv_kernel = NULL;}
+    if( g_rgba_to_uv_kernel ) {clReleaseKernel( g_rgba_to_uv_kernel ); g_rgba_to_uv_kernel = NULL;}
     if( g_rgb_to_nv12_kernel ) {clReleaseKernel( g_rgb_to_nv12_kernel ); g_rgb_to_nv12_kernel = NULL;}
-	if( g_rgb_to_uv_kernel ) {clReleaseKernel( g_rgb_to_uv_kernel ); g_rgb_to_uv_kernel = NULL;}
-    if( g_rgb_blend_kernel ) {clReleaseKernel( g_rgb_blend_kernel ); g_rgb_blend_kernel = NULL;}
-    if( g_rgba_blend_kernel ) {clReleaseKernel( g_rgba_blend_kernel ); g_rgba_blend_kernel = NULL;}
+    if( g_rgb_to_uv_kernel ) {clReleaseKernel( g_rgb_to_uv_kernel ); g_rgb_to_uv_kernel = NULL;}
     if( g_program ) {clReleaseProgram( g_program ); g_program = NULL;}
     //if( g_cmd_queue ) {clReleaseCommandQueue( g_cmd_queue ); g_cmd_queue = NULL;}
     //if( g_context ) {clReleaseContext( g_context ); g_context = NULL;}
@@ -209,16 +198,18 @@ void clConvert::Cleanup_OpenCL()
     if(g_decoded_frame) {free(g_decoded_frame); g_decoded_frame = NULL;} 
 }
 
-//Everything else is in device.cpp
+//Unused
 int clConvert::setupCL()
 {
-    g_cmd_queue = clCreateCommandQueue(g_context, deviceID, 0, NULL);
-    if (g_cmd_queue == (cl_command_queue)0)
+    for(int i = 0; i < 2; i++)
     {
-        Cleanup_OpenCL();
-        return FAILURE;
+        g_cmd_queue[i] = clCreateCommandQueue(g_context, deviceID, 0, NULL);
+        if (g_cmd_queue[i] == (cl_command_queue)0)
+        {
+            Cleanup_OpenCL();
+            return FAILURE;
+        }
     }
-
     return SUCCESS;
 }
 
@@ -227,34 +218,34 @@ extern HMODULE hmoduleVFW;
 int clConvert::createKernels()
 {
     cl_int status;
-	//#define SRCSIZE 32000 + 32000%2
+    //#define SRCSIZE 32000 + 32000%2
     // create a CL program using the kernel source, load it from resource
-	char* source;// = (LPSTR)malloc(SRCSIZE);
-	//memset(source, 0, SRCSIZE);
-	HRSRC hResource = FindResourceExA( hmoduleVFW, "STRING",
+    char* source;// = (LPSTR)malloc(SRCSIZE);
+    //memset(source, 0, SRCSIZE);
+    HRSRC hResource = FindResourceExA( hmoduleVFW, "STRING",
                                 MAKEINTRESOURCEA(IDR_OPENCL_KERNELS),
                                 MAKELANGID(LANG_NEUTRAL,
                                             SUBLANG_DEFAULT) );
 
-	if( hResource != NULL )
+    if( hResource != NULL )
     {
-		source = (char*)LoadResource( hmoduleVFW, hResource );
-	}
-	//LoadStringA(hmoduleVFW, IDR_OPENCL_KERNELS, source, SRCSIZE);
-	size_t sourceSize[] = {strlen(source)};
-	g_program = clCreateProgramWithSource(g_context,
-										1,
-										(const char**)&source,
-										sourceSize,
-										&status);
-	//free(source);
-	CHECK_OPENCL_ERROR(status, "clCreateProgramWithSource failed.");
+        source = (char*)LoadResource( hmoduleVFW, hResource );
+    }
+    //LoadStringA(hmoduleVFW, IDR_OPENCL_KERNELS, source, SRCSIZE);
+    size_t sourceSize[] = {strlen(source)};
+    g_program = clCreateProgramWithSource(g_context,
+                                        1,
+                                        (const char**)&source,
+                                        sourceSize,
+                                        &status);
+    //free(source);
+    CHECK_OPENCL_ERROR(status, "clCreateProgramWithSource failed.");
 
     std::string flagsStr(""); //"-save-temps"
-	if(mOptimize)
-		flagsStr.append("-cl-single-precision-constant -cl-mad-enable -cl-fast-relaxed-math -cl-unsafe-math-optimizations ");
-	if(mColSpaceLimit)
-		flagsStr.append("-DCOLORSPACE_LIMIT");
+    if(mOptimize)
+        flagsStr.append("-cl-single-precision-constant -cl-mad-enable -cl-fast-relaxed-math -cl-unsafe-math-optimizations ");
+    if(mColSpaceLimit)
+        flagsStr.append("-DCOLORSPACE_LIMIT");
 
     if(flagsStr.size() != 0)
         mLog->Log(L"Build Options are : %S\n", flagsStr.c_str());
@@ -297,19 +288,19 @@ int clConvert::createKernels()
                                               buildLog, 
                                               NULL);
             CHECK_OPENCL_ERROR(logStatus, "clGetProgramBuildInfo failed.");
-			mLog->Log(
-					L"\n\t\t\tBUILD LOG\n"
-					L" ************************************************\n"
-					L" %S"
-					L" ************************************************\n",
-					buildLog);
+            mLog->Log(
+                    L"\n\t\t\tBUILD LOG\n"
+                    L" ************************************************\n"
+                    L" %S"
+                    L" ************************************************\n",
+                    buildLog);
             free(buildLog);
         }
 
         CHECK_OPENCL_ERROR(status, "clBuildProgram() failed.");
     }
 
-	size_t temp = 0;
+    size_t temp = 0;
 
     /* get a kernel object handle for a kernel with the given name */
     /*remove_pitch_kernel = clCreateKernel(program, "removePitch", &status);
@@ -336,14 +327,14 @@ int clConvert::createKernels()
             localThreads_remove_pitch_kernel[1] *= 2;
     }*/
 
-	//TODO Enable if you need NV12-to-RGB(A)
-	//g_nv12_to_rgb_kernel = clCreateKernel(g_program, "NV12toRGB", &status);
+    //TODO Enable if you need NV12-to-RGB(A)
+    //g_nv12_to_rgb_kernel = clCreateKernel(g_program, "NV12toRGB", &status);
     //CHECK_OPENCL_ERROR(status, "clCreateKernel(NV12toRGB) failed!");
 
     //g_nv12_to_rgba_kernel = clCreateKernel(g_program, "NV12toRGBA", &status);
     //CHECK_OPENCL_ERROR(status, "clCreateKernel(NV12toRGBA) failed!");
 
-	 /*status = clGetKernelWorkGroupInfo(
+     /*status = clGetKernelWorkGroupInfo(
                 g_nv12_to_rgba_kernel,
                 deviceID,
                 CL_KERNEL_WORK_GROUP_SIZE,
@@ -352,8 +343,8 @@ int clConvert::createKernels()
                 0);
     CHECK_OPENCL_ERROR(status, "clGetKernelWorkGroupInfo failed");
 
-	std::cout << "clGetKernelWorkGroupInfo: " << temp << std::endl;
-	
+    std::cout << "clGetKernelWorkGroupInfo: " << temp << std::endl;
+    
     while(localThreads_nv12_to_rgba_kernel[0] * 
           localThreads_nv12_to_rgba_kernel[1] < temp)
     {
@@ -366,23 +357,20 @@ int clConvert::createKernels()
             localThreads_nv12_to_rgba_kernel[1] *= 2;
     }*/
 
-	g_rgba_to_nv12_kernel = clCreateKernel(g_program, "RGBAtoNV12", &status);
-    CHECK_OPENCL_ERROR(status, "clCreateKernel(RGBAtoNV12) failed!");
+    g_rgba_to_nv12_kernel = clCreateKernel(g_program, "RGBAtoNV12", &status);
+    CHECK_OPENCL_ERROR(status, "clCreateKernel(RGBAtoNV12) #1 failed!");
 
-	//TODO Reusing localThreads_rgba_to_nv12_kernel, should be fine?
-	g_rgb_to_nv12_kernel = clCreateKernel(g_program, "RGBtoNV12", &status);
+    //TODO Reusing localThreads_Max, should be fine?
+    g_rgb_to_nv12_kernel = clCreateKernel(g_program, "RGBtoNV12", &status);
     CHECK_OPENCL_ERROR(status, "clCreateKernel(RGBtoNV12) failed!");
 
-	g_rgba_to_uv_kernel = clCreateKernel(g_program, "RGBAtoNV12_UV", &status);
+    g_rgba_to_uv_kernel = clCreateKernel(g_program, "RGBAtoNV12_UV", &status);
     CHECK_OPENCL_ERROR(status, "clCreateKernel(RGBAtoNV12_UV) failed!");
 
-	g_rgb_to_uv_kernel = clCreateKernel(g_program, "RGBtoNV12_UV", &status);
+    g_rgb_to_uv_kernel = clCreateKernel(g_program, "RGBtoNV12_UV", &status);
     CHECK_OPENCL_ERROR(status, "clCreateKernel(RGBtoNV12_UV) failed!");
 
-	g_rgb_blend_kernel = clCreateKernel(g_program, "RGBBlend", &status);
-    CHECK_OPENCL_ERROR(status, "clCreateKernel(RGBtoNV12) failed!");
-
-	status = clGetKernelWorkGroupInfo(
+    status = clGetKernelWorkGroupInfo(
                 g_rgb_to_nv12_kernel,
                 deviceID,
                 CL_KERNEL_WORK_GROUP_SIZE,
@@ -391,19 +379,19 @@ int clConvert::createKernels()
                 0);
     CHECK_OPENCL_ERROR(status, "clGetKernelWorkGroupInfo failed");
 
-	mLog->Log(L"clGetKernelWorkGroupInfo: %d\n", temp);
-	
-	//TODO Should limit to half as work_dim is 2? May give invalid WG size on cpu atleast
-    while(localThreads_rgba_to_nv12_kernel[0] * 
-          localThreads_rgba_to_nv12_kernel[1] < temp)
+    mLog->Log(L"clGetKernelWorkGroupInfo: %d\n", temp);
+    
+    //TODO Should limit to half as work_dim is 2? May give invalid WG size on cpu atleast
+    while(localThreads_Max[0] * 
+          localThreads_Max[1] < temp)
     {
-        if(2 * localThreads_rgba_to_nv12_kernel[0] *
-           localThreads_rgba_to_nv12_kernel[1] <= temp)
-            localThreads_rgba_to_nv12_kernel[0] *= 2;
+        if(2 * localThreads_Max[0] *
+           localThreads_Max[1] <= temp)
+            localThreads_Max[0] *= 2;
 
-        if(2 * localThreads_rgba_to_nv12_kernel[0] *
-           localThreads_rgba_to_nv12_kernel[1] <= temp)
-            localThreads_rgba_to_nv12_kernel[1] *= 2;
+        if(2 * localThreads_Max[0] *
+           localThreads_Max[1] <= temp)
+            localThreads_Max[1] *= 2;
     }
 
 
@@ -411,24 +399,24 @@ int clConvert::createKernels()
 }
 
 bool clConvert::runNV12ToRGBKernel(
-						size_t globalThreads[2],
-						size_t localThreads[2])
+                        size_t globalThreads[2],
+                        size_t localThreads[2])
 {
     cl_int status = 0;
-	cl_kernel kernel;
+    cl_kernel kernel;
 
-	if(bpp_bytes == 4)
-		kernel = g_nv12_to_rgba_kernel;
-	else if(bpp_bytes == 3)
-		kernel = g_nv12_to_rgb_kernel;
-	else
-		return false;
+    if(bpp_bytes == 4)
+        kernel = g_nv12_to_rgba_kernel;
+    else if(bpp_bytes == 3)
+        kernel = g_nv12_to_rgb_kernel;
+    else
+        return false;
     // Set up kernel arguments
     status = clSetKernelArg(
                 kernel, 
                 0, 
                 sizeof(cl_mem), 
-                &g_inputBuffer);
+                &g_inputBuffer[0]);
     CHECK_OPENCL_ERROR(status, "clSetKernelArg(g_inputBuffer) failed!\n");
 
 
@@ -441,7 +429,7 @@ bool clConvert::runNV12ToRGBKernel(
 
     cl_event ndrEvt;
     status = clEnqueueNDRangeKernel(
-                g_cmd_queue,
+                g_cmd_queue[0],
                 kernel,
                 2,
                 0,
@@ -452,7 +440,7 @@ bool clConvert::runNV12ToRGBKernel(
                 &ndrEvt);
     CHECK_OPENCL_ERROR(status, "clEnqueueNDRangeKernel(g_nv12_to_rgb(a)_kernel) failed!");
 
-    status = clFlush(g_cmd_queue);
+    status = clFlush(g_cmd_queue[0]);
     CHECK_OPENCL_ERROR(status, "clFlush failed");
 
     // Wait for event and release event
@@ -463,9 +451,9 @@ bool clConvert::runNV12ToRGBKernel(
 }
 
 bool clConvert::runRGBToNV12Kernel(
-						cl_kernel kernel,
-						size_t globalThreads[2],
-						size_t localThreads[2], bool blend)
+                        cl_kernel kernel,
+                        size_t globalThreads[2],
+                        size_t localThreads[2], bool blend)
 {
     cl_int status = 0;
 
@@ -474,7 +462,7 @@ bool clConvert::runRGBToNV12Kernel(
                 kernel, 
                 0, 
                 sizeof(cl_mem), 
-                &g_inputBuffer);
+                &g_inputBuffer[0]);
     CHECK_OPENCL_ERROR(status, "clSetKernelArg(g_inputBuffer) failed!\n");
 
 
@@ -485,24 +473,16 @@ bool clConvert::runRGBToNV12Kernel(
                 &g_outputBuffer);
     CHECK_OPENCL_ERROR(status, "clSetKernelArg(g_outputBuffer) failed!");
 
-	status = clSetKernelArg(
+    status = clSetKernelArg(
                 kernel, 
                 2, 
                 sizeof(int), 
                 &oAlignedWidth);
     CHECK_OPENCL_ERROR(status, "clSetKernelArg(alignedWidth) failed!");
 
-	if(blend)
-	status = clSetKernelArg(
-                kernel, 
-                3, 
-                sizeof(cl_mem), 
-                &g_blendBuffer);
-    CHECK_OPENCL_ERROR(status, "clSetKernelArg(g_blendBuffer) failed!\n");
-
     cl_event ndrEvt;
     status = clEnqueueNDRangeKernel(
-                g_cmd_queue,
+                g_cmd_queue[0],
                 kernel,
                 2,
                 0,
@@ -513,7 +493,7 @@ bool clConvert::runRGBToNV12Kernel(
                 &ndrEvt);
     CHECK_OPENCL_ERROR(status, "clEnqueueNDRangeKernel failed!");
 
-    status = clFlush(g_cmd_queue);
+    status = clFlush(g_cmd_queue[0]);
     CHECK_OPENCL_ERROR(status, "clFlush failed");
 
     // Wait for event and release event
@@ -523,259 +503,389 @@ bool clConvert::runRGBToNV12Kernel(
     return SUCCESS;
 }
 
+int clConvert::setKernelArgs(cl_kernel kernel, cl_mem input, cl_mem output)
+{
+    cl_int status = 0;
+
+    // Set up kernel arguments
+    status = clSetKernelArg(
+                kernel, 
+                0, 
+                sizeof(cl_mem), 
+                &input);
+    CHECK_OPENCL_ERROR(status, "clSetKernelArg(input) failed!\n");
+
+    status = clSetKernelArg(
+                kernel, 
+                1, 
+                sizeof(cl_mem), 
+                &output);
+    CHECK_OPENCL_ERROR(status, "clSetKernelArg(output) failed!");
+
+    status = clSetKernelArg(
+                kernel, 
+                2, 
+                sizeof(int), 
+                &oAlignedWidth);
+    CHECK_OPENCL_ERROR(status, "clSetKernelArg(alignedWidth) failed!");
+    return SUCCESS;
+}
+
+int clConvert::setKernelOffset(cl_kernel kernel, int offset)
+{
+    cl_int status = 0;
+
+    // Set up kernel arguments
+    status = clSetKernelArg(
+                kernel, 
+                3, 
+                sizeof(int), 
+                &offset);
+    CHECK_OPENCL_ERROR(status, "clSetKernelArg(offset) failed!\n");
+    return SUCCESS;
+}
+
+int clConvert::runKernel(cl_kernel kernel,
+                cl_command_queue queue,
+                size_t globalThreads[2],
+                size_t localThreads[2],
+                double *prof,
+                bool wait)
+{
+    cl_int status = 0;
+
+    cl_event ndrEvt;
+    status = clEnqueueNDRangeKernel(
+                queue,
+                kernel,
+                2,
+                0,
+                globalThreads,
+                localThreads,
+                0, 
+                0, 
+                wait ? &ndrEvt : NULL);
+    CHECK_OPENCL_ERROR(status, "clEnqueueNDRangeKernel failed!");
+
+    if(wait) {
+        status = clFlush(queue);
+        CHECK_OPENCL_ERROR(status, "clFlush failed");
+    }
+
+    // Wait for event and release event
+    //status = waitForEventAndRelease(&ndrEvt);
+    //CHECK_OPENCL_ERROR(status, "waitForEventAndRelease(ndrEvt) failed.");
+    
+    //set 'wait' to true for profiling. Also pass profiling option when creating command queues.
+    if(wait) {
+        status = clWaitForEvents(1, &ndrEvt);
+        CHECK_OPENCL_ERROR(status, "clWaitForEvents failed.");
+        
+        // Calculate performance
+        cl_ulong startTime;
+        cl_ulong endTime;
+        
+        // Get kernel profiling info
+        status = clGetEventProfilingInfo(ndrEvt,
+                                         CL_PROFILING_COMMAND_START,
+                                         sizeof(cl_ulong),
+                                         &startTime,
+                                         0);
+        CHECK_OPENCL_ERROR(status, "clGetEventProfilingInfo failed.(startTime)");
+
+        status = clGetEventProfilingInfo(ndrEvt,
+                                         CL_PROFILING_COMMAND_END,
+                                         sizeof(cl_ulong),
+                                         &endTime,
+                                         0);
+        CHECK_OPENCL_ERROR(status, "clGetEventProfilingInfo failed.(endTime)");
+
+        // Cumulate time for each iteration
+        if(prof)
+            *prof += 1e-9 * (endTime - startTime);
+
+        status = clReleaseEvent(ndrEvt);
+        CHECK_OPENCL_ERROR(status, "clRelease Event Failed");
+    }
+    return SUCCESS;
+}
+
 int clConvert::decodeInit()
 {
-	cl_int statusCL = CL_SUCCESS;
-	
-	// Size of NV12 format
-    int host_ptr_size = iWidth * iHeight * 3 / 2;
-    //host_ptr = malloc(host_ptr_size);
-    //CHECK_ALLOCATION(host_ptr, "Failed to allocate memory(host_ptr)");
-    
-    // RGBA host buffer
-    // RGB might need alignment to power of 2
-    // " A built-in data type that is not a power of two bytes in size must be aligned to the next larger power of two. 
-    //		This rule applies to built-in types only, not structs or unions. "
-	oAlignedWidth = ((iWidth + (256 - 1)) & ~(256 - 1));
-    g_output_size = oWidth * oHeight * bpp_bytes;
-    //g_decoded_frame = malloc(g_output_size);
-    //CHECK_ALLOCATION(g_decoded_frame, "Failed to allocate memory(g_decoded_frame)");
-    
-	// Create buffer to store the YUV image
-    g_inputBuffer = clCreateBuffer(
-                                g_context, 
-                                CL_MEM_READ_ONLY, //_WRITE,
-                                host_ptr_size, 
-                                NULL, 
-                                &statusCL);
-    CHECK_OPENCL_ERROR(statusCL , "clCreateBuffer(g_inputBuffer) failed!");
-    
-    // Create buffer to store the output of NV12ToRGBA kernel
-    g_outputBuffer = clCreateBuffer(
-                    g_context, 
-                    CL_MEM_READ_WRITE,
-                    g_output_size,
-                    NULL, 
-                    &statusCL);
-    CHECK_OPENCL_ERROR(statusCL, "clCreateBuffer(g_outputBuffer) failed!");
-    
-    return SUCCESS;
+    return FAILURE;
 }
 
-int clConvert::encodeInit()
+int clConvert::encodeInit(bool staggered)
 {
-	cl_int statusCL = CL_SUCCESS;
-	
-    int input_size = iWidth * iHeight * bpp_bytes;
+    cl_int statusCL = CL_SUCCESS;
+    profSecs1 = 0;
+    profSecs2 = 0;
 
-	//VCE encoder needs aligned input, adjust pitch here
-	oAlignedWidth = ((iWidth + (256 - 1)) & ~(256 - 1));
+    //TODO Odd framebuffer sizes
+    input_size = iWidth * iHeight * bpp_bytes;
+    int input_size_half = iWidth * (iHeight>>1) * bpp_bytes;
+
+    //VCE encoder needs aligned input, adjust pitch here
+    oAlignedWidth = ((iWidth + (256 - 1)) & ~(256 - 1));
     g_output_size = oAlignedWidth * oHeight * 3 / 2;
 
-#ifndef USE_HOST_MEM
     // Create buffer to store the YUV image
-    g_inputBuffer = clCreateBuffer(
+    g_inputBuffer[0] = clCreateBuffer(
                                 g_context, 
-                                CL_MEM_READ_WRITE,
-                                input_size, 
+                                CL_MEM_READ_ONLY,
+                                staggered ? input_size_half : input_size, 
                                 NULL, 
                                 &statusCL);
-    CHECK_OPENCL_ERROR(statusCL , "clCreateBuffer(g_inputBuffer) failed!");
-#endif
+    CHECK_OPENCL_ERROR(statusCL , "clCreateBuffer(g_inputBuffer[0]) failed!");
 
-    //g_pinnedBuffer = clCreateBuffer(
-    //                            g_context, 
-    //                            CL_MEM_READ_ONLY | CL_MEM_ALLOC_HOST_PTR,
-    //                            input_size, 
-    //                            NULL, 
-    //                            &statusCL);
-    //CHECK_OPENCL_ERROR(statusCL , "clCreateBuffer(g_pinnedBuffer) failed!");
-
-    // Create buffer to store the output
-    /*g_outputBuffer = clCreateBuffer(
-                    g_context, 
-                    CL_MEM_READ_WRITE,
-                    g_output_size,
-                    NULL, 
-                    &statusCL);
-    CHECK_OPENCL_ERROR(statusCL, "clCreateBuffer(g_outputBuffer) failed!");*/
-    
- //   g_blendBuffer = clCreateBuffer(
- //                               g_context, 
- //                               CL_MEM_READ_WRITE,
- //                               input_size, 
- //                               NULL, 
- //                               &statusCL);
- //   //CHECK_OPENCL_ERROR(statusCL , "clCreateBuffer(g_blendBuffer) failed!");
-	//if(checkVal(statusCL, CL_SUCCESS, "clCreateBuffer(g_blendBuffer) failed!", true) == FAILURE)
-	//{
-	//	g_blendBuffer = NULL;
-	//}
+    if(staggered) {
+        g_inputBuffer[1] = clCreateBuffer(
+                                    g_context, 
+                                    CL_MEM_READ_ONLY,
+                                    input_size - input_size_half, 
+                                    NULL, 
+                                    &statusCL);
+        CHECK_OPENCL_ERROR(statusCL , "clCreateBuffer(g_inputBuffer[1]) failed!");
+    } else
+        g_inputBuffer[1] = NULL;
 
     return SUCCESS;
 }
 
-//RGB to NV12
-int clConvert::encode(const uint8* srcPtr, uint32 srcSize, cl_mem dstBuffer)
+//RGB(A) to NV12
+//clFlushs may be unnecessery. nVidia OpenCL Best Practices oclCopyComputeOverlap sample.
+//Cut buffer to half and start converting it as soon as 1st half is uploaded to device. Seems slower though.
+int clConvert::convertStaggered(const uint8* srcPtr, cl_mem dstBuffer)
 {
-	cl_int status = CL_SUCCESS;
-	size_t offset[] = {0, 0};
-	size_t globalThreads[] = {iWidth, iHeight};
-	size_t localThreads[] = {localThreads_rgba_to_nv12_kernel[0],
-							 localThreads_rgba_to_nv12_kernel[1]};
+    cl_int status = CL_SUCCESS;
+    bool flipped = true;
+    size_t offset[] = {0, 0};
+    size_t globalThreads[] = {iWidth, iHeight};
+    size_t localThreads[] = {localThreads_Max[0],
+                             localThreads_Max[1]};
 
-#ifdef USE_HOST_MEM
-	auto ptr = bufferMap.find(srcPtr);
-	if(ptr == bufferMap.end())
-	{
-		g_inputBuffer = clCreateBuffer(
-			g_context, 
-			CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR,
-			srcSize, 
-			(void*)srcPtr, 
-			&status);
-		CHECK_OPENCL_ERROR(status , "clCreateBuffer(g_inputBuffer) failed!");
-		bufferMap[srcPtr] = g_inputBuffer;
-		mLog->Log(L"Creating new buffer from 0x%X, size: %d\n", srcPtr, srcSize);
-	} else {
-		g_inputBuffer = ptr->second;
-	}
-#else
-	cl_event inMapEvt;
-	mapPtr = clEnqueueMapBuffer( g_cmd_queue,
-                        g_inputBuffer,
-						//g_pinnedBuffer,
+    g_outputBuffer = dstBuffer;
+    int srcTotal = iWidth * iHeight * bpp_bytes;
+    int srcSize1 = iWidth * (iHeight>>1) * bpp_bytes;
+    int srcSize2 = srcTotal - srcSize1;
+
+#if 0
+    //Debug, clear old output buffer
+    cl_event inMapEvt;
+    mapPtr = clEnqueueMapBuffer( g_cmd_queue[0], dstBuffer, CL_TRUE, CL_MAP_WRITE, 0, 
+        oAlignedWidth * iHeight * 3/2, 0, NULL, NULL, &status);
+    status = clFlush(g_cmd_queue[0]);
+
+    //copy to mapped buffer
+    memset(mapPtr, 128, oAlignedWidth * iHeight * 3/2);//set to gray
+
+    cl_event unmapEvent;
+    status = clEnqueueUnmapMemObject(g_cmd_queue[0], dstBuffer, mapPtr, 0, NULL, &unmapEvent);
+    status = clFlush(g_cmd_queue[0]);
+    waitForEventAndRelease(&unmapEvent);
+#endif
+
+    //**************************** Queue first half write ****************************
+    status = clEnqueueWriteBuffer(g_cmd_queue[0], g_inputBuffer[0],
+        CL_FALSE, 0, srcSize1, srcPtr, 0, NULL, NULL);
+    CHECK_OPENCL_ERROR(status, "clEnqueueWriteBuffer() #1 failed");
+
+    clFlush(g_cmd_queue[0]);
+
+    //**************************** Run over first half ****************************
+    globalThreads[0] = iWidth;
+    globalThreads[1] = iHeight >> 1;
+    //globalThreads[1] -= globalThreads[1] % 2;
+    //TODO CPU driver will complain.
+    localThreads[1] = localThreads_Max[1];// / (4 + thread_extra_div);
+
+    setKernelArgs(g_rgba_to_nv12_kernel, g_inputBuffer[0], dstBuffer);
+    setKernelArgs(g_rgba_to_uv_kernel,   g_inputBuffer[0], dstBuffer);
+    setKernelOffset(g_rgba_to_nv12_kernel, 0);
+    
+    int halfHeightFix = iHeight>>1;
+    halfHeightFix = -(halfHeightFix%2)*3;
+    setKernelOffset(g_rgba_to_uv_kernel, halfHeightFix);
+
+    // RGB -> NV12
+    if(runKernel(g_rgba_to_nv12_kernel, g_cmd_queue[0], globalThreads, localThreads, &profSecs1, false))
+    {
+        mLog->Log(L"g_rgba_to_nv12_kernel #1 failed!\n");
+        return FAILURE;
+    }
+
+    globalThreads[0] = iWidth / 2;
+    globalThreads[1] = iHeight / 4;
+    //TODO CPU driver will complain.
+    localThreads[1] = localThreads_Max[1];// / (8 + thread_extra_div);
+
+    if(runKernel(g_rgba_to_uv_kernel, g_cmd_queue[0], globalThreads, localThreads, &profSecs2, false))
+    {
+        mLog->Log(L"g_rgba_to_uv_kernel failed!\n");
+        return FAILURE;
+    }
+
+    //**************************** Write second half ****************************
+    status = clEnqueueWriteBuffer(g_cmd_queue[1], g_inputBuffer[1],
+        CL_FALSE, 0, srcSize2, srcPtr + srcSize1, 0, NULL, NULL);
+    CHECK_OPENCL_ERROR(status, "clEnqueueWriteBuffer() #2 failed");
+
+    // Push the compute for queue 0 & write for queue 1
+    clFlush(g_cmd_queue[0]);
+    clFlush(g_cmd_queue[1]);
+
+    //**************************** Run over second half ****************************
+    globalThreads[0] = iWidth;
+    globalThreads[1] = iHeight >> 1;
+    globalThreads[1] += globalThreads[1] % 2;
+    //TODO CPU driver will complain.
+    localThreads[1] = localThreads_Max[1];// / (4 + thread_extra_div);
+
+    setKernelArgs(g_rgba_to_nv12_kernel, g_inputBuffer[1], dstBuffer);
+    setKernelArgs(g_rgba_to_uv_kernel,   g_inputBuffer[1], dstBuffer);
+
+    if(flipped)
+    {
+        //may leave empty lines with odd sizes
+        setKernelOffset(g_rgba_to_nv12_kernel, (iHeight>>1));
+        int quarterHeight = (iHeight>>2) + halfHeightFix;
+        setKernelOffset(g_rgba_to_uv_kernel,   quarterHeight);
+    }
+    else 
+    {
+        setKernelOffset(g_rgba_to_nv12_kernel, oAlignedWidth * (iHeight>>1));
+        setKernelOffset(g_rgba_to_uv_kernel,   ((oAlignedWidth*iHeight)>>2));
+    }
+
+    // RGB -> NV12
+    if(runKernel(g_rgba_to_nv12_kernel, g_cmd_queue[1], globalThreads, localThreads, &profSecs1, false))
+    {
+        mLog->Log(L"g_rgba_to_nv12_kernel #1 failed!\n");
+        return FAILURE;
+    }
+
+    globalThreads[0] = iWidth / 2;
+    globalThreads[1] = iHeight / 4;
+    //TODO CPU driver will complain.
+    localThreads[1] = localThreads_Max[1];// / (8 + thread_extra_div);
+
+    if(runKernel(g_rgba_to_uv_kernel, g_cmd_queue[1], globalThreads, localThreads, &profSecs2, false))
+    {
+        mLog->Log(L"g_rgba_to_uv_kernel failed!\n");
+        return FAILURE;
+    }
+
+    // Non Blocking Read of 1st half of output data, queue 0
+    //clEnqueueReadBuffer(g_cmd_queue[0], g_outputBuffer,
+    //	CL_FALSE, 0, szHalfBuffer, (void*)&fResult[0], 0, NULL, NULL);
+        
+    //**************************** FINISH ****************************
+    // Push the compute for queue 1 & the read for queue 0
+    clFlush(g_cmd_queue[0]);
+    clFlush(g_cmd_queue[1]);
+
+    clFinish(g_cmd_queue[0]);
+    clFinish(g_cmd_queue[1]);
+    
+    g_outputBuffer = NULL;
+
+    return SUCCESS;
+}
+
+//RGB(A) to NV12
+int clConvert::convert(const uint8* srcPtr, cl_mem dstBuffer, bool profile)
+{
+    cl_int status = CL_SUCCESS;
+    size_t offset[] = {0, 0};
+    size_t globalThreads[] = {iWidth, iHeight};
+    size_t localThreads[] = {localThreads_Max[0],
+                             localThreads_Max[1]};
+    cl_kernel kernelY, kernelUV;
+
+    //could move to init probably
+    if(bpp_bytes == 4) {
+        kernelY = g_rgba_to_nv12_kernel;
+        kernelUV = g_rgba_to_uv_kernel;
+    } else {
+        kernelY = g_rgb_to_nv12_kernel;
+        kernelUV = g_rgb_to_uv_kernel;
+    }
+
+    cl_event inMapEvt;
+    mapPtr = clEnqueueMapBuffer( g_cmd_queue[0],
+                        g_inputBuffer[0],
+                        //g_pinnedBuffer,
                         CL_TRUE, 
-						//CL_FALSE,
+                        //CL_FALSE,
                         CL_MAP_WRITE,
                         0,
-                        srcSize,
+                        input_size,
                         0,
                         NULL,
                         NULL,//&inMapEvt,
                         &status);
-	//sync at unmapping
+    //sync at unmapping
     //status = clFlush(g_cmd_queue);
     //waitForEventAndRelease(&inMapEvt);
+	CHECK_OPENCL_ERROR(status, "clEnqueueMapBuffer() failed");
 
-	//copy to mapped buffer
-	memcpy(mapPtr, srcPtr, srcSize);
+    //copy to mapped buffer or clEnqueueWriteBuffer instead
+    memcpy(mapPtr, srcPtr, input_size);
 
-	//I guess the whole point here is that it wouldn't be a blocked write, so no use?
-	//status = clEnqueueWriteBuffer(g_cmd_queue,
-	//	g_inputBuffer,
-	//	CL_TRUE, //blocking
-	//	0,
-	//	srcSize,
-	//	mapPtr, //mapped to g_pinnedBuffer
-	//	0,
-	//	NULL,
-	//	0);
-	//CHECK_OPENCL_ERROR(status, "clEnqueueWriteBuffer() failed");
+    //I guess the whole point here is that it wouldn't be a blocked write, so no use?
+    //status = clEnqueueWriteBuffer(g_cmd_queue[0],
+    //	g_inputBuffer[0],
+    //	CL_TRUE, //blocking
+    //	0,
+    //	input_size,
+    //	mapPtr, //mapped to g_pinnedBuffer
+    //	0,
+    //	NULL,
+    //	0);
+    //CHECK_OPENCL_ERROR(status, "clEnqueueWriteBuffer() failed");
 
-	cl_event unmapEvent;
-	status = clEnqueueUnmapMemObject(g_cmd_queue,
-									g_inputBuffer, 
-									//g_pinnedBuffer,
-									mapPtr,
-									0,
-									NULL,
-									&unmapEvent);
-	status = clFlush(g_cmd_queue);
-	waitForEventAndRelease(&unmapEvent);
-#endif
+    cl_event unmapEvent;
+    status = clEnqueueUnmapMemObject(g_cmd_queue[0],
+                                    g_inputBuffer[0], 
+                                    //g_pinnedBuffer,
+                                    mapPtr,
+                                    0,
+                                    NULL,
+                                    &unmapEvent);
+    status = clFlush(g_cmd_queue[0]);
+    waitForEventAndRelease(&unmapEvent);
 
-	cl_kernel kernel;
+    setKernelArgs(kernelY, g_inputBuffer[0], dstBuffer);
+    setKernelArgs(kernelUV, g_inputBuffer[0], dstBuffer);
+    setKernelOffset(kernelY, 0);
+    setKernelOffset(kernelUV, 0);
 
-	if(bpp_bytes == 4)
-		kernel = g_rgba_to_nv12_kernel;
-	else //if(bpp_bytes == 3)
-		kernel = g_rgb_to_nv12_kernel;
+    if(runKernel(kernelY, g_cmd_queue[0], globalThreads, localThreads, &profSecs1, profile))
+    {
+        mLog->Log(L"kernelY failed!\n");
+        return FAILURE;
+    }
 
-	g_outputBuffer = dstBuffer;
-	if(runRGBToNV12Kernel(kernel, globalThreads, localThreads, false))
-	{
-		mLog->Log(L"runRGB(A)ToNV12Kernel failed!\n");
-		return FAILURE;
-	}
+    //encoder should be feeding divideable by 16 frames anyway
+    globalThreads[0] = (globalThreads[0] >> 1);
+    //globalThreads[0] -= globalThreads[0] % 2;
+    globalThreads[1] = (globalThreads[1] >> 1);
+    //globalThreads[1] -= globalThreads[1] % 2;
+    //mLog->Log(L"GID: %dx%d\n", globalThreads[0],globalThreads[1]);
+    if(runKernel(kernelUV, g_cmd_queue[1], globalThreads, localThreads, &profSecs2, profile))
+    {
+        mLog->Log(L"kernelUV failed!\n");
+        return FAILURE;
+    }
 
-	if(bpp_bytes == 4)
-		kernel = g_rgba_to_uv_kernel;
-	else //if(bpp_bytes == 3)
-		kernel = g_rgb_to_uv_kernel;
+    clFinish(g_cmd_queue[0]);
+    clFinish(g_cmd_queue[1]);
 
-	//encoder should be feeding divideable by 16 frames anyway
-	globalThreads[0] = (globalThreads[0] >> 1);
-	//globalThreads[0] -= globalThreads[0] % 2;
-	globalThreads[1] = (globalThreads[1] >> 1);
-	//globalThreads[1] -= globalThreads[1] % 2;
-	//mLog->Log(L"GID: %dx%d\n", globalThreads[0],globalThreads[1]);
-	if(runRGBToNV12Kernel(kernel, globalThreads, localThreads, false))
-	{
-		mLog->Log(L"runRGB(A)ToNV12_UVKernel failed!\n");
-		return FAILURE;
-	}
+    //average from second sample
+    if(profSecs1 > 0 ) {
+        profSecs1 /= 2;
+        profSecs2 /= 2;
+    }
 
-	g_outputBuffer = NULL;
-	//clFinish(g_cmd_queue);
-
-	return SUCCESS;
-}
-
-//Pointless until we can drop frames from output somehow, don't use
-int clConvert::blendAndEncode(const uint8* srcPtr1, uint32 srcSize1, 
-	const uint8* srcPtr2, uint32 srcSize2,
-	uint8* dstPtr, uint32 dstSize)
-{
-	cl_int status = CL_SUCCESS;
-	size_t offset[] = {0, 0};
-	size_t globalThreads[] = {iWidth, iHeight};
-	size_t localThreads[] = {localThreads_rgba_to_nv12_kernel[0],
-							 localThreads_rgba_to_nv12_kernel[1]};
-	
-	
-	status = clEnqueueWriteBuffer(g_cmd_queue,
-		g_inputBuffer,
-		CL_TRUE /* blocking_write */,
-		0 /* offset */,
-		srcSize1, //iWidth * iHeight * bpp_bytes,
-		srcPtr2,
-		0      /* num_events_in_wait_list */,
-		NULL   /* event_wait_list */,
-		0      /* event */);
-
-	CHECK_OPENCL_ERROR(status, "clEnqueueWriteBuffer() failed");
-	
-	status = clEnqueueWriteBuffer(g_cmd_queue,
-		g_blendBuffer,
-		CL_TRUE /* blocking_write */,
-		0 /* offset */,
-		srcSize2, //iWidth * iHeight * bpp_bytes,
-		srcPtr2,
-		0      /* num_events_in_wait_list */,
-		NULL   /* event_wait_list */,
-		0      /* event */);
-
-	CHECK_OPENCL_ERROR(status, "clEnqueueWriteBuffer() failed");
-
-	if(runRGBToNV12Kernel(bpp_bytes == 4 ? g_rgba_blend_kernel : g_rgb_blend_kernel, globalThreads, localThreads, true))
-	{
-		mLog->Log(L"runRGB(A)ToNV12Kernel failed!\n");
-		return FAILURE;
-	}
-
-	status = clEnqueueReadBuffer(
-				g_cmd_queue, 
-				g_outputBuffer, 
-				CL_TRUE, 
-				0, 
-				g_output_size, 
-				dstPtr, 
-				0, 
-				NULL, 
-				0);
-	CHECK_OPENCL_ERROR(status, "clEnqueueReadBuffer() failed");
-	
-
-	return SUCCESS;
+    return SUCCESS;
 }

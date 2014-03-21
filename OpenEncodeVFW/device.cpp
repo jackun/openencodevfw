@@ -79,7 +79,7 @@ bool CodecInst::getDeviceCap(OPContextHandle oveContext,uint32 oveDeviceID,
     encodeCaps->caps.encode_cap_full->num_Profile_level         = 0;
     encodeCaps->caps.encode_cap_full->max_bit_rate              = 0;
     encodeCaps->caps.encode_cap_full->min_bit_rate              = 0;
-    encodeCaps->caps.encode_cap_full->supported_task_priority   = OVE_ENCODE_TASK_PRIORITY_NONE;
+	encodeCaps->caps.encode_cap_full->supported_task_priority   = OVE_ENCODE_TASK_PRIORITY_LEVEL2;
 
     for(int32 j=0; j<OVE_MAX_NUM_PICTURE_FORMATS_H264; j++)
         encodeCaps->caps.encode_cap_full->supported_picture_formats[j] = OVE_PICTURE_FORMAT_NONE;
@@ -308,9 +308,15 @@ bool CodecInst::createCPUContext(cl_platform_id platform)
 		return false;
 	}
 
-	mCpuCmdQueue = clCreateCommandQueue(mCpuCtx, mCpuDev, 0, &err);
+	mCpuCmdQueue[0] = clCreateCommandQueue(mCpuCtx, mCpuDev, 0, &err);
 	if(err != CL_SUCCESS) {
-		Log(L"\nCreate command queue failed! Error : %d\n", err);
+		Log(L"\nCreate command queue #0 failed! Error : %d\n", err);
+		return false;
+	}
+	
+	mCpuCmdQueue[1] = clCreateCommandQueue(mCpuCtx, mCpuDev, 0, &err);
+	if(err != CL_SUCCESS) {
+		Log(L"\nCreate command queue #1 failed! Error : %d\n", err);
 		return false;
 	}
 	//clReleaseContext(context);

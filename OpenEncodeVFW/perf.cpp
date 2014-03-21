@@ -185,6 +185,11 @@ void CodecInst::displayFps(OVprofile *profileCnt,cl_device_id clDeviceID )
 		Log(L"VCE Frame Rate (copy back)    : %5.2f\n", mean3);
 		Log(L"Colourspace conv              : %5.2f\n", mean2);
 		Log(L"Whole compression             : %5.2f [FPS]\n", perf4);
+
+		if(mCLConvert && mConfigTable[L"ProfileKernels"]==1) {
+			Log(L"Y kernel                      : %f seconds (avg)\n", mCLConvert->profSecs1);
+			Log(L"UV kernel                     : %f seconds (avg)\n", mCLConvert->profSecs2);
+		}
 	}
 }
 

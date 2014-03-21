@@ -133,16 +133,21 @@ DWORD CodecInst::CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
     /* device on which user wants to create the encoder                       */
     /* In this case device 0 is choosen                                       */
     /**************************************************************************/
-    uint32 deviceId = mDeviceHandle.deviceInfo[0].device_id;
-    clDeviceID = reinterpret_cast<cl_device_id>(deviceId);
     Log(L"Devices: %d\n", mDeviceHandle.numDevices);
+    if(mDeviceHandle.numDevices == 0)
+        return ICERR_INTERNAL;
+
+    uint32 idx = MIN(mConfigTable[L"UseDevice"], mDeviceHandle.numDevices - 1);
+    Log(L"Selecting device: %d\n", idx);
+    uint32 deviceId = mDeviceHandle.deviceInfo[idx].device_id;
+    clDeviceID = reinterpret_cast<cl_device_id>(deviceId);
     
      // print device name
     size_t valueSize;
     clGetDeviceInfo(clDeviceID, CL_DEVICE_NAME, 0, NULL, &valueSize);
     char* value = (char*) malloc(valueSize);
     clGetDeviceInfo(clDeviceID, CL_DEVICE_NAME, valueSize, value, NULL);
-    Log(L"Device 1 @ 0x%08x: %S\n", clDeviceID, value);
+    Log(L"Device %d @ 0x%08x: %S\n", idx, clDeviceID, value);
     free(value);
 
     // print parallel compute units
@@ -207,21 +212,16 @@ DWORD CodecInst::CompressGetSize(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER l
 
 DWORD CodecInst::CompressEnd(){
 
-    //TODO 
-    if(mCLConvert)
-    {
-        delete mCLConvert;
-        mCLConvert = NULL;
-    }
-
     if(mCpuCtx)
     {
-        clReleaseCommandQueue(mCpuCmdQueue);
+        clReleaseCommandQueue(mCpuCmdQueue[0]);
+        clReleaseCommandQueue(mCpuCmdQueue[1]);
         //clReleaseDevice(mCpuDev);//no need
         clReleaseContext(mCpuCtx);
         mCpuCtx = NULL;
         mCpuDev = NULL;
-        mCpuCmdQueue = NULL;
+        mCpuCmdQueue[0] = NULL;
+        mCpuCmdQueue[1] = NULL;
     }
 
     status = encodeClose(&mEncodeHandle);
@@ -266,6 +266,12 @@ DWORD CodecInst::CompressEnd(){
     }
 
     if(mLog) mLog->close();
+
+    if(mCLConvert)
+    {
+        delete mCLConvert;
+        mCLConvert = NULL;
+    }
 
     return ICERR_OK;
 }
@@ -496,11 +502,23 @@ bool CodecInst::encodeOpen(OVEncodeHandle *encodeHandle,OPContextHandle oveConte
     /* Create a command queue                                                 */
     /**************************************************************************/
    
-    encodeHandle->clCmdQueue = clCreateCommandQueue((cl_context)oveContext,
-                                       clDeviceID, 0, &err);
+    cl_command_queue_properties prop = 0;
+    if(mConfigTable[L"ProfileKernels"] == 1)
+        prop |= CL_QUEUE_PROFILING_ENABLE;
+
+    encodeHandle->clCmdQueue[0] = clCreateCommandQueue((cl_context)oveContext,
+                                       clDeviceID, prop, &err);
     if(err != CL_SUCCESS)
     {
-        Log(L"\nCreate command queue failed! Error : %d\n", err);
+        Log(L"\nCreate command queue #0 failed! Error : %d\n", err);
+        return false;
+    }
+
+    encodeHandle->clCmdQueue[1] = clCreateCommandQueue((cl_context)oveContext,
+                                       clDeviceID, prop, &err);
+    if(err != CL_SUCCESS)
+    {
+        Log(L"\nCreate command queue #1 failed! Error : %d\n", err);
         return false;
     }
 
@@ -602,7 +620,7 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
     void* mapPtr = NULL;
     if(!mUseCLConv)
     {
-        mapPtr = clEnqueueMapBuffer( encodeHandle->clCmdQueue,
+        mapPtr = clEnqueueMapBuffer( encodeHandle->clCmdQueue[0],
                                         (cl_mem)inputSurface,
                                         CL_TRUE, //CL_FALSE,
                                         CL_MAP_READ | CL_MAP_WRITE,
@@ -613,7 +631,7 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
                                         &inMapEvt,
                                         &status);
 
-        status = clFlush(encodeHandle->clCmdQueue);
+        status = clFlush(encodeHandle->clCmdQueue[0]);
         waitForEvent(inMapEvt);
         status = clReleaseEvent(inMapEvt);
     }
@@ -627,12 +645,8 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
     {
         if(mUseCLConv)
         {
-            uint32 srcSize = pConfig->width * pConfig->height * (mFormat / 8);
-            //if(mConfigTable[L"blend"] == 1 && mFrameNum > 0)
-            //	convertFail = mCLConvert->blendAndEncode(buffer2, srcSize, inData, srcSize,(uint8*)mapPtr, hostPtrSize) != 0;
-            //else
-                //convertFail = mCLConvert->encode(inData, srcSize, (uint8*)mapPtr, hostPtrSize) != 0;
-            convertFail = mCLConvert->encode(inData, srcSize, (cl_mem)inputSurface) != 0;
+            //uint32 srcSize = pConfig->width * pConfig->height * (mFormat / 8);
+            convertFail = mCLConvert->convert(inData, (cl_mem)inputSurface, mConfigTable[L"ProfileKernels"]==1) != 0;
         }
         else
             RGBtoNV12 (inData, (uint8 *)mapPtr, mFormat/8, 1, pConfig->width, pConfig->height, alignedSurfaceWidth);
@@ -655,18 +669,20 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
     if(!mUseCLConv && mapPtr)
     {
         cl_event unmapEvent;
-        status = clEnqueueUnmapMemObject(encodeHandle->clCmdQueue,
+        status = clEnqueueUnmapMemObject(encodeHandle->clCmdQueue[0],
                                         (cl_mem)inputSurface,
                                         mapPtr,
                                         0,
                                         NULL,
                                         &unmapEvent);
-        status = clFlush(encodeHandle->clCmdQueue);
+        status = clFlush(encodeHandle->clCmdQueue[0]);
         waitForEvent(unmapEvent);
         status = clReleaseEvent(unmapEvent);
     }
-    if(convertFail)
+    if(convertFail) {
+		Log(L"Conversion failed!\n");
         goto fail;
+	}
 
     /**********************************************************************/
     /* use the input surface buffer as our Picture                        */
@@ -844,12 +860,18 @@ bool CodecInst::encodeClose(OVEncodeHandle *encodeHandle)
         }
     }
 
-    if(encodeHandle->clCmdQueue)
-    err = clReleaseCommandQueue(encodeHandle->clCmdQueue);
+    if(encodeHandle->clCmdQueue[0])
+        err = clReleaseCommandQueue(encodeHandle->clCmdQueue[0]);
     if(err != CL_SUCCESS)
     {
-        Log(L"Error releasing Command queue\n");
-        return false;
+        Log(L"Error releasing Command queue #0\n");
+    }
+
+    if(encodeHandle->clCmdQueue[1])
+        err = clReleaseCommandQueue(encodeHandle->clCmdQueue[1]);
+    if(err != CL_SUCCESS)
+    {
+        Log(L"Error releasing Command queue #1\n");
     }
 
     if(encodeHandle->session)

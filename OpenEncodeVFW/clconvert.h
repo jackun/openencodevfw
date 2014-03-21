@@ -18,7 +18,7 @@
 #define CHECK_ALLOCATION(actual, msg) \
         if(actual == NULL) \
         { \
-            std::cerr << "Location : " << __FILE__ << ":" << __LINE__<< std::endl; \
+            mLog->Log(L"Location : %S : %d\n", __FILE__, __LINE__); \
             return FAILURE; \
         }
 
@@ -26,44 +26,54 @@
 #define CHECK_ERROR(actual, reference, msg) \
         if(actual != reference) \
         { \
-            std::cerr << "Location : " << __FILE__ << ":" << __LINE__<< std::endl; \
+            mLog->Log(L"Location : %S : %d\n", __FILE__, __LINE__); \
             return FAILURE; \
         }
 
 #define CHECK_OPENCL_ERROR(actual, msg) \
-	if(checkVal(actual, CL_SUCCESS, msg, true)) \
+    if(checkVal(actual, CL_SUCCESS, msg, true)) \
         { \
-            std::cerr << "Location : " << __FILE__ << ":" << __LINE__<< std::endl; \
+            mLog->Log(L"Location : %S : %d\n", __FILE__, __LINE__); \
             return FAILURE; \
         } 
 
 #define OPENCL_EXPECTED_ERROR(msg) \
         { \
-            std::cerr<<"Expected Error: "<<msg<<std::endl;\
+            mLog->Log(L"Expected Error %S\n", msg); \
             return EXPECTED_FAILURE; \
         }
 
 class clConvert
 {
 public:
+	double	profSecs1,profSecs2;
 
-
-	clConvert(cl_context ctx, cl_device_id dev, cl_command_queue cmdqueue, 
+	clConvert(cl_context ctx, cl_device_id dev, cl_command_queue cmdqueue[2], 
 			int width, int height, unsigned int _bpp_bytes, Logger *log, 
 			bool opt = true, bool limit = true):
 		g_context(ctx), deviceID(dev),
 		iWidth(width), oWidth(width), 
 		iHeight(height), oHeight(height), bpp_bytes(_bpp_bytes),
-		g_nv12_to_rgba_kernel(NULL), g_rgba_to_nv12_kernel(NULL),
-		g_nv12_to_rgb_kernel(NULL), g_rgb_to_nv12_kernel(NULL), g_rgb_blend_kernel(NULL), g_rgba_blend_kernel(NULL),
-		host_ptr(NULL), g_output_size(0), g_inputBuffer(NULL), g_pinnedBuffer(NULL), g_outputBuffer(NULL), g_blendBuffer(NULL),
-		g_cmd_queue(cmdqueue), g_program(NULL), g_decoded_frame(NULL), mLog(log),
-		mOptimize(opt), mColSpaceLimit(limit)
+		g_nv12_to_rgba_kernel(NULL), //g_rgba_to_nv12_kernel(NULL),
+		g_nv12_to_rgb_kernel(NULL), g_rgb_to_nv12_kernel(NULL), 
+		g_rgba_to_uv_kernel(NULL), 
+		g_rgb_to_uv_kernel(NULL),
+		host_ptr(NULL), g_output_size(0), g_outputBuffer(NULL),
+		g_program(NULL), g_decoded_frame(NULL), mLog(log),
+		mOptimize(opt), mColSpaceLimit(limit), 
+		profSecs1(0), profSecs2(0)
 	{
 		localThreads_nv12_to_rgba_kernel[0] = 1;
 		localThreads_nv12_to_rgba_kernel[1] = 1;
-		localThreads_rgba_to_nv12_kernel[0] = 1;
-		localThreads_rgba_to_nv12_kernel[1] = 1;
+		localThreads_Max[0] = 1;
+		localThreads_Max[1] = 1;
+
+		g_cmd_queue[0] = cmdqueue[0];
+		g_cmd_queue[1] = cmdqueue[1];
+		g_inputBuffer[0] = NULL;
+		g_inputBuffer[1] = NULL;
+
+		g_rgba_to_nv12_kernel = NULL;
 	}
 
 	~clConvert()
@@ -74,16 +84,13 @@ public:
 	bool init()
 	{
 		//if(setupCL() == SUCCESS && )
-		if(createKernels() == SUCCESS && encodeInit() == SUCCESS)
+		if(createKernels() == SUCCESS && encodeInit(false) == SUCCESS)
 			return true;
 		return false;
 	}
 
-	
-	int encode(const uint8* srcPtr, uint32 srcSize, cl_mem dstBuffer);
-	int blendAndEncode(const uint8* srcPtr1, uint32 srcSize1, 
-		const uint8* srcPtr2, uint32 srcSize2,
-		uint8* dstPtr, uint32 dstSize);
+	int convertStaggered(const uint8* srcPtr, cl_mem dstBuffer);
+	int convert(const uint8* srcPtr, cl_mem dstBuffer, bool profile);
 
 private:
 	cl_platform_id		platform; //OVEncode CL platform ?
@@ -100,13 +107,12 @@ private:
 	void 				*g_decoded_frame;
 	void				*mapPtr;
 	std::map<const uint8*, cl_mem>	bufferMap;
+	int					input_size;
 	int					g_output_size;
-	cl_mem				g_inputBuffer;
-	cl_mem				g_pinnedBuffer;
+	cl_mem				g_inputBuffer[2];
 	cl_mem				g_outputBuffer;
-	cl_mem				g_blendBuffer;
 	cl_context			g_context;
-	cl_command_queue 	g_cmd_queue;
+	cl_command_queue 	g_cmd_queue[2];
 	cl_program			g_program;
 
 	// Kernels
@@ -116,10 +122,8 @@ private:
 	cl_kernel           g_rgba_to_uv_kernel;
 	cl_kernel           g_rgb_to_nv12_kernel;
 	cl_kernel           g_rgb_to_uv_kernel;
-	cl_kernel           g_rgb_blend_kernel;
-	cl_kernel           g_rgba_blend_kernel;
 	size_t localThreads_nv12_to_rgba_kernel[2];// = {1, 1};
-	size_t localThreads_rgba_to_nv12_kernel[2];// = {1, 1};
+	size_t localThreads_Max[2];// = {1, 1};
 
 	bool g_bRunOnGPU;// = false;
 	cl_device_id deviceID;// = 0;
@@ -129,7 +133,7 @@ private:
 
 	int setupCL();
 	int decodeInit();
-	int encodeInit();
+	int encodeInit(bool staggered);
 	int waitForEventAndRelease(cl_event *event);
 	void Cleanup_OpenCL();
 	int createKernels();
@@ -140,6 +144,16 @@ private:
 						cl_kernel kernel,
 						size_t globalThreads[2],
 						size_t localThreads[2], bool blend);
+
+	int setKernelArgs(cl_kernel kernel, cl_mem input, cl_mem output);
+	int setKernelOffset(cl_kernel kernel, int offset);
+	int runKernel(cl_kernel kernel,
+				cl_command_queue queue,
+				size_t globalThreads[2],
+				size_t localThreads[2],
+				double *prof,
+				bool wait);
+
 	template<typename T>
 	int checkVal(
 		T input, 

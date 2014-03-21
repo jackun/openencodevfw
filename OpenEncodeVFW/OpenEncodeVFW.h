@@ -101,7 +101,7 @@ typedef struct OVEncodeHandle
 {
 	ove_session          session;       /**< Pointer to encoder session   */
 	OPMemHandle		     inputSurfaces[MAX_INPUT_SURFACE]; /**< input buffer  */
-	cl_command_queue     clCmdQueue;    /**< command queue  */
+	cl_command_queue     clCmdQueue[2];    /**< command queue  */
 }OVEncodeHandle;
 
 typedef std::map<cl_device_id, std::wstring> DeviceMap;
@@ -154,7 +154,7 @@ public:
 	
 	cl_context			mCpuCtx;
 	cl_device_id		mCpuDev;
-	cl_command_queue	mCpuCmdQueue;
+	cl_command_queue	mCpuCmdQueue[2];
 	
 	/**************************************************************************/
 	/* Create profile counters                                                */

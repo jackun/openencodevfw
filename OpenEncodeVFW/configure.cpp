@@ -6,18 +6,20 @@ extern HMODULE hmoduleVFW;
 
 //FIXME Proper maximum, 100 Mbps with 4.1+ level, probably
 #define MAX_BITRATE 50000 //kbit/s
-#define MAX_QUANT 51 //0...51 for I/P, (B frames are unsupported)
+#define MAX_QUANT 51 //0...51 for I/P, (B frames are unsupported, but new driver (and hawaii+) does?)
 
 void CodecInst::prepareConfigMap()
 {
 	//Custom app settings
 	mConfigTable.insert(pair<wstring,int32>(L"sendFPS", 0)); //Send proper video fps to encoder. Not sending allows video conversion with weird framerates
 	mConfigTable.insert(pair<wstring,int32>(L"blend", 0)); // Blend to frames, output at half framerate (ok, but how to? :D)(you may need to fix avi header)
-	mConfigTable.insert(pair<wstring,int32>(L"YV12AsNV12", 0));
+	mConfigTable.insert(pair<wstring,int32>(L"YV12AsNV12", 0));//YUV or YVU
 	mConfigTable.insert(pair<wstring,int32>(L"SpeedyMath", 1)); //Enable some OpenCL optimizations
 	mConfigTable.insert(pair<wstring,int32>(L"ColorspaceLimit", 0)); //Limit rgb between 16..239
 	mConfigTable.insert(pair<wstring,int32>(L"Log", 0));
 	mConfigTable.insert(pair<wstring,int32>(L"IDRframes", 250)); //encIDRPeriod?
+	mConfigTable.insert(pair<wstring,int32>(L"ProfileKernels", 0));
+	mConfigTable.insert(pair<wstring,int32>(L"UseDevice", 0));
 
 	/**************************************************************************/
 	/* EncodeSpecifications                                                   */  
@@ -641,10 +643,13 @@ static void DialogUpdate(HWND hwndDlg, CodecInst* pinst)
 	{
 		DeviceMap::iterator it = pinst->mDevList.begin();
 		DeviceMap::iterator ite = pinst->mDevList.end();
-		for(; it!=ite; it++)
-			SendDlgItemMessage(hwndDlg, IDC_DEVICE_CB, CB_ADDSTRING, 0, (LPARAM)it->second.c_str());
+		for(; it!=ite; it++) {
+			swprintf_s(temp, L"%d. %s", (long)it._Ptr - (long)pinst->mDevList.begin()._Ptr, it->second.c_str());
+			SendDlgItemMessageW(hwndDlg, IDC_DEVICE_CB, CB_ADDSTRING, 0, (LPARAM)temp);
+		}
 
-		SendDlgItemMessage(hwndDlg, IDC_DEVICE_CB, CB_SETCURSEL, 0, 0);
+		pinst->mConfigTable[L"UseDevice"] = MIN(pinst->mConfigTable[L"UseDevice"], pinst->mDevList.size());
+		SendDlgItemMessage(hwndDlg, IDC_DEVICE_CB, CB_SETCURSEL, pinst->mConfigTable[L"UseDevice"], 0);
 	}
 
 	//FIXME
@@ -724,6 +729,7 @@ static void DialogUpdate(HWND hwndDlg, CodecInst* pinst)
 	CheckDlgButton(hwndDlg, IDC_CABAC, pinst->mConfigTable[L"CABACEnable"]);
 	CheckDlgButton(hwndDlg, IDC_USE_OPENCL, pinst->mUseCLConv ? 1 : 0);
 	CheckDlgButton(hwndDlg, IDC_USE_OPENCL2, pinst->mUseCPU ? 1 : 0);
+	CheckDlgButton(hwndDlg, IDC_USE_OPENCL3, pinst->mConfigTable[L"ProfileKernels"] ? 1 : 0);
 	CheckDlgButton(hwndDlg, IDC_USE_ME_AMD, pinst->mConfigTable[L"enableAMD"]);
 	CheckDlgButton(hwndDlg, IDC_SKIP_MV16, pinst->mConfigTable[L"encForce16x16skip"]);
 	CheckDlgButton(hwndDlg, IDC_FRAMERATE, pinst->mConfigTable[L"sendFPS"]);
@@ -785,6 +791,10 @@ static BOOL CALLBACK ConfigureDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam,
 						IdxToLevel(pinst->mConfigTable[L"level"]);
 
 						break;
+					case IDC_DEVICE_CB:
+						pinst->mConfigTable[L"UseDevice"] = SendDlgItemMessage(hwndDlg, IDC_DEVICE_CB, CB_GETCURSEL, 0, 0);
+
+						break;
 
 					default:
 						return FALSE;
@@ -813,6 +823,9 @@ static BOOL CALLBACK ConfigureDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam,
 					break;
 				case IDC_USE_OPENCL2:
 					pinst->mUseCPU = IsDlgButtonChecked(hwndDlg, IDC_USE_OPENCL2) == 1;
+					break;
+				case IDC_USE_OPENCL3:
+					pinst->mConfigTable[L"ProfileKernels"] = IsDlgButtonChecked(hwndDlg, IDC_USE_OPENCL3);
 					break;
 				case IDC_USE_ME_AMD:
 					pinst->mConfigTable[L"enableAMD"] = IsDlgButtonChecked(hwndDlg, IDC_USE_ME_AMD);
