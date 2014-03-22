@@ -50,21 +50,17 @@ public:
 
 	clConvert(cl_context ctx, cl_device_id dev, cl_command_queue cmdqueue[2], 
 			int width, int height, unsigned int _bpp_bytes, Logger *log, 
-			bool opt = true, bool limit = true):
+			bool opt = true, bool bgr = false):
 		g_context(ctx), deviceID(dev),
 		iWidth(width), oWidth(width), 
 		iHeight(height), oHeight(height), bpp_bytes(_bpp_bytes),
-		g_nv12_to_rgba_kernel(NULL), //g_rgba_to_nv12_kernel(NULL),
-		g_nv12_to_rgb_kernel(NULL), g_rgb_to_nv12_kernel(NULL), 
-		g_rgba_to_uv_kernel(NULL), 
-		g_rgb_to_uv_kernel(NULL),
+		g_y_kernel(NULL), g_uv_kernel(NULL),
 		host_ptr(NULL), g_output_size(0), g_outputBuffer(NULL),
-		g_program(NULL), g_decoded_frame(NULL), mLog(log),
-		mOptimize(opt), mColSpaceLimit(limit), 
-		profSecs1(0), profSecs2(0)
+		g_program(NULL), mLog(log),
+		mOptimize(opt),
+		profSecs1(0), profSecs2(0),
+		hRaw(NULL), mBGR(bgr)
 	{
-		localThreads_nv12_to_rgba_kernel[0] = 1;
-		localThreads_nv12_to_rgba_kernel[1] = 1;
 		localThreads_Max[0] = 1;
 		localThreads_Max[1] = 1;
 
@@ -72,8 +68,6 @@ public:
 		g_cmd_queue[1] = cmdqueue[1];
 		g_inputBuffer[0] = NULL;
 		g_inputBuffer[1] = NULL;
-
-		g_rgba_to_nv12_kernel = NULL;
 	}
 
 	~clConvert()
@@ -93,7 +87,7 @@ public:
 	int convert(const uint8* srcPtr, cl_mem dstBuffer, bool profile);
 
 private:
-	cl_platform_id		platform; //OVEncode CL platform ?
+	//cl_platform_id		platform; //OVEncode CL platform ?
 	
 	std::string			deviceType;// = "cpu";
 	unsigned int		num_event_in_wait_list;
@@ -104,7 +98,6 @@ private:
 	int					oAlignedWidth;
 	unsigned int		bpp_bytes;
 	void				*host_ptr;
-	void 				*g_decoded_frame;
 	void				*mapPtr;
 	std::map<const uint8*, cl_mem>	bufferMap;
 	int					input_size;
@@ -114,22 +107,18 @@ private:
 	cl_context			g_context;
 	cl_command_queue 	g_cmd_queue[2];
 	cl_program			g_program;
+	FILE				*hRaw;
 
 	// Kernels
-	cl_kernel           g_nv12_to_rgba_kernel;
-	cl_kernel           g_nv12_to_rgb_kernel;
-	cl_kernel           g_rgba_to_nv12_kernel;
-	cl_kernel           g_rgba_to_uv_kernel;
-	cl_kernel           g_rgb_to_nv12_kernel;
-	cl_kernel           g_rgb_to_uv_kernel;
-	size_t localThreads_nv12_to_rgba_kernel[2];// = {1, 1};
+	cl_kernel           g_y_kernel;
+	cl_kernel           g_uv_kernel;
 	size_t localThreads_Max[2];// = {1, 1};
 
 	bool g_bRunOnGPU;// = false;
 	cl_device_id deviceID;// = 0;
 	Logger *mLog;
 	bool	mOptimize;
-	bool	mColSpaceLimit;
+	bool	mBGR;
 
 	int setupCL();
 	int decodeInit();

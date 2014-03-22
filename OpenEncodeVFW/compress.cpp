@@ -184,7 +184,7 @@ DWORD CodecInst::CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
             mFormat / 8,
             mLog,
             mConfigTable[L"SpeedyMath"]==1,
-            mConfigTable[L"ColorspaceLimit"]==1);
+            mConfigTable[L"IsBGRA"]==1);
 
         if(!mCLConvert->init())
         {

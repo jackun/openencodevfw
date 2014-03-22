@@ -20,9 +20,10 @@ void CodecInst::prepareConfigMap()
 	mConfigTable.insert(pair<wstring,int32>(L"IDRframes", 250)); //encIDRPeriod?
 	mConfigTable.insert(pair<wstring,int32>(L"ProfileKernels", 0));
 	mConfigTable.insert(pair<wstring,int32>(L"UseDevice", 0));
+	mConfigTable.insert(pair<wstring,int32>(L"IsBGRA", 1)); //BGR(A) or RGB(A)
 
 	/**************************************************************************/
-	/* EncodeSpecifications                                                   */  
+	/* EncodeSpecifications                                                   */
 	/**************************************************************************/
 	mConfigTable.insert(pair<wstring,int32>(L"pictureHeight", 144)); 
 	mConfigTable.insert(pair<wstring,int32>(L"pictureWidth", 176)); 
@@ -33,7 +34,7 @@ void CodecInst::prepareConfigMap()
 	mConfigTable.insert(pair<wstring,int32>(L"requestedPriority", 1)); 
 	
 	/**************************************************************************/
-	/* ConfigPicCtl                                                           */ 
+	/* ConfigPicCtl                                                           */
 	/**************************************************************************/
 	mConfigTable.insert(pair<wstring,int32>(L"useConstrainedIntraPred", 0)); 
 	mConfigTable.insert(pair<wstring,int32>(L"CABACEnable", 1)); 
@@ -736,7 +737,7 @@ static void DialogUpdate(HWND hwndDlg, CodecInst* pinst)
 	CheckDlgButton(hwndDlg, IDC_BLEND, pinst->mConfigTable[L"blend"]);
 	CheckDlgButton(hwndDlg, IDC_YV12ASNV12, pinst->mConfigTable[L"YV12AsNV12"]);
 	CheckDlgButton(hwndDlg, IDC_SPEEDY_MATH, pinst->mConfigTable[L"SpeedyMath"]);
-	CheckDlgButton(hwndDlg, IDC_CS_LIMIT, pinst->mConfigTable[L"ColorspaceLimit"]);
+	CheckDlgButton(hwndDlg, IDC_CS_BGRA, pinst->mConfigTable[L"IsBGRA"]);
 	CheckDlgButton(hwndDlg, IDC_LOG, pinst->mConfigTable[L"Log"]);
 	swprintf(temp, 1023, L"%d", pinst->mConfigTable[L"IDRframes"]);
 	SetDlgItemText(hwndDlg, IDC_IDR, temp);
@@ -842,8 +843,8 @@ static BOOL CALLBACK ConfigureDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam,
 				case IDC_SPEEDY_MATH:
 					pinst->mConfigTable[L"SpeedyMath"] = IsDlgButtonChecked(hwndDlg, IDC_SPEEDY_MATH);
 					break;
-				case IDC_CS_LIMIT:
-					pinst->mConfigTable[L"ColorspaceLimit"] = IsDlgButtonChecked(hwndDlg, IDC_CS_LIMIT);
+				case IDC_CS_BGRA:
+					pinst->mConfigTable[L"IsBGR"] = IsDlgButtonChecked(hwndDlg, IDC_CS_BGRA);
 					break;
 				case IDC_LOG:
 					pinst->mConfigTable[L"Log"] = IsDlgButtonChecked(hwndDlg, IDC_LOG);

@@ -30,10 +30,10 @@ void Logger::Log_internal(const wchar_t *psz_fmt, va_list arg)
 
 	if(mLog)
 	{
-		wchar_t msg[1024];
+		wchar_t msg[4096];
 		memset(msg, 0, sizeof(msg));
-		_vswprintf_c(msg, sizeof(msg), psz_fmt, arg);
-		fwrite(msg, sizeof(wchar_t ), wcslen(msg), mLog);
+		_vsnwprintf_s(msg, 4096, psz_fmt, arg);
+		fwrite(msg, sizeof(wchar_t), wcslen(msg), mLog);
 		fflush(mLog);
 	}
 }
