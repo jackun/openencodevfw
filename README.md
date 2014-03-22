@@ -43,5 +43,6 @@ Some setting descriptions
  * `Profiles` / `levels`: start from http://en.wikipedia.org/wiki/H.264/MPEG-4_AVC#Profiles . Colorspace is limited to Y'UV422.
  * `Send FPS` sets encoder framerate properties to video framerate. Should be more efficient, but not all framerates are supported by encoder. Untick to treat all videos as having 30 fps.
  * `Speedy Math` tries to speed up OpenCL floating point math by making it less accurate, but should be good enough.
+ * `Is BGR(A)` : select if captured image is using BGR colour format instead of RGB (like with Dxtory/D3D11).
 
 Probably not very accurate descriptions :P
