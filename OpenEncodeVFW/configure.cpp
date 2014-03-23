@@ -845,7 +845,7 @@ static BOOL CALLBACK ConfigureDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam,
 					pinst->mConfigTable[L"SpeedyMath"] = IsDlgButtonChecked(hwndDlg, IDC_SPEEDY_MATH);
 					break;
 				case IDC_CS_BGRA:
-					pinst->mConfigTable[L"IsBGR"] = IsDlgButtonChecked(hwndDlg, IDC_CS_BGRA);
+					pinst->mConfigTable[L"IsBGRA"] = IsDlgButtonChecked(hwndDlg, IDC_CS_BGRA);
 					break;
 				case IDC_LOG:
 					pinst->mConfigTable[L"Log"] = IsDlgButtonChecked(hwndDlg, IDC_LOG);
