@@ -498,7 +498,7 @@ __kernel void BGRtoNV12_UV(__global uchar *input,
     uint height = get_global_size(1) * 2;
 #endif
 
-#ifdef FLIP_bgr
+#ifdef FLIP_RGB
 #ifdef USE_STAGGERED
     uint uv_offset = alignedWidth * height + //Skip Y bytes
                     ( (heightHalf*2 - offset) - id.y - 1) * alignedWidth + id.x * 2;

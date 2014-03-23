@@ -751,7 +751,7 @@ int clConvert::convert(const uint8* srcPtr, cl_mem dstBuffer, bool profile)
         return FAILURE;
     }
 
-    //encoder should be feeding divideable by 16 frames anyway
+    //encoder should be feeding divideable by 2 frames anyway
     globalThreads[0] = (globalThreads[0] >> 1);
     //globalThreads[0] -= globalThreads[0] % 2;
     globalThreads[1] = (globalThreads[1] >> 1);
