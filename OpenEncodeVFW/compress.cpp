@@ -117,7 +117,7 @@ DWORD CodecInst::CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
     mFormat = lpbiIn->biBitCount;
     mLength = mWidth*mHeight*mFormat/8;
     mCompressed_size = 0;
-    mParser->init();
+    //mParser->init();
     mWarnedBuggy = false;
 
     Log(L"Initializing Encoder...\n");
@@ -649,7 +649,7 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
             convertFail = mCLConvert->convert(inData, (cl_mem)inputSurface, mConfigTable[L"ProfileKernels"]==1) != 0;
         }
         else
-            RGBtoNV12 (inData, (uint8 *)mapPtr, mFormat/8, 1, pConfig->width, pConfig->height, alignedSurfaceWidth);
+            RGBtoNV12 (inData, (uint8 *)mapPtr, mFormat/8, 1, mConfigTable[L"IsBGRA"], pConfig->width, pConfig->height, alignedSurfaceWidth);
     }
     else if(mFormat == 12 && (mCompression == FOURCC_NV12 || mCompression == FOURCC_YV12))
     {

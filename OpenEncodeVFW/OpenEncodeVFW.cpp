@@ -23,7 +23,7 @@ CodecInst::CodecInst() : isVistaOrNewer(false),
 	prepareConfigMap();
 	readRegistry();
 
-	mParser = new Parser();
+	//mParser = new Parser();
 	mLog = new Logger(mConfigTable[L"Log"] == 1);
 	Log(L"Init\n");
 
@@ -147,9 +147,9 @@ DWORD CodecInst::GetInfo(ICINFO* icinfo, DWORD dwSize) {
 	icinfo->dwFlags			= VIDCF_FASTTEMPORALC | VIDCF_FASTTEMPORALD;
 	icinfo->dwVersion		= 0x00010000;
 	icinfo->dwVersionICM	= ICVERSION;
-	memcpy(icinfo->szName,L"OpenEncodeVFW",sizeof(L"OpenEncodeVFW"));
-	//Well, no decoder part (yet)
-	memcpy(icinfo->szDescription,L"OpenEncodeVFW Codec using AMD APP/VCE",sizeof(L"OpenEncodeVFW Codec using AMD APP/VCE"));
+	wcscpy_s(icinfo->szName, L"OpenEncodeVFW");
+	//Well, no decoder part
+	wcscpy_s(icinfo->szDescription, L"OpenEncodeVFW Encoder using AMD APP/VCE");
 
 	return sizeof(ICINFO);
 }
@@ -179,7 +179,7 @@ void CodecInst::Log(const wchar_t *psz_fmt, ...)
  *  @return bool : true if successful; otherwise false.
  *******************************************************************************
  */
-//Some hypothetical 12 bit YUV format
+
 bool CodecInst::yuvToNV12(const uint8 *inData, uint32 uiHeight, uint32 uiWidth, 
                uint32 alignedSurfaceWidth, int8 *pBitstreamData)
 {
@@ -325,7 +325,6 @@ bool isH264iFrame(int8 *frame)
     return false;
 }
 
-// FIXME SSE2 enabled below don't produce NV12 so kinda useless duh
 void ConvertRGB32toYV12_SSE2(const uint8 *src, uint8 *ydest, uint8 *udest, uint8 *vdest, unsigned int w, unsigned int h) {
 	const __m128i fraction		= _mm_setr_epi32(0x84000,0x84000,0x84000,0x84000);    //= 0x108000/2 = 0x84000
 	const __m128i neg32			= _mm_setr_epi32(-32,-32,-32,-32);
@@ -547,7 +546,7 @@ void ConvertRGB24toYV12_SSE2(const uint8 *src, uint8 *ydest, uint8 *udest, uint8
 void RGBtoNV12 (const uint8 * rgb,
 	uint8 * yuv,
 	unsigned rgbIncrement, //bpp in bytes
-	uint8 flip,
+	uint8 flip, uint8 isBGR,
 	int srcFrameWidth, int srcFrameHeight, uint32 yuvPitch)
 {
 
@@ -574,6 +573,7 @@ void RGBtoNV12 (const uint8 * rgb,
 
 	planeSize = yuvPitch * srcFrameHeight;
 	halfWidth = yuvPitch >> 1;
+	isBGR = MIN(isBGR, 1);
 
 	// get pointers to the data
 	Y = yuv;
@@ -618,7 +618,7 @@ void RGBtoNV12 (const uint8 * rgb,
 			{
 				lsrc += rgbIncrement;
 				// No need to saturate between 16 and 235
-				*(lY++) = 16 + ((32768 + RtoYCoeff * lsrc[0] + GtoYCoeff * lsrc[1] + BtoYCoeff * lsrc[2]) >> 16);
+				*(lY++) = 16 + ((32768 + RtoYCoeff * lsrc[0 + isBGR*2] + GtoYCoeff * lsrc[1] + BtoYCoeff * lsrc[2 - isBGR*2]) >> 16);
 			}
 		}
 	}
@@ -645,18 +645,19 @@ void RGBtoNV12 (const uint8 * rgb,
 			lsrc += rgbIncrement*2;
 
 			// No need to saturate between 16 and 240
-			U00 = 128 + ((32768 + RtoUCoeff * lsrc[0] + GtoUCoeff * lsrc[1] + BtoUCoeff * lsrc[2]) >> 16);
-			U01 = 128 + ((32768 + RtoUCoeff * lsrc[0+rgbIncrement] + GtoUCoeff * lsrc[1+rgbIncrement] + BtoUCoeff * lsrc[2+rgbIncrement]) >> 16);
-			U10 = 128 + ((32768 + RtoUCoeff * rgbAt(lsrc, 0, 1) + GtoUCoeff * rgbAt(lsrc, 1, 1) + BtoUCoeff * rgbAt(lsrc, 2, 1)) >> 16);
-			U11 = 128 + ((32768 + RtoUCoeff * rgbAt(lsrc, 0+rgbIncrement, 1) + GtoUCoeff * (rgbAt(lsrc, 1+rgbIncrement, 1)) + BtoUCoeff * rgbAt(lsrc, 2+rgbIncrement, 1)) >> 16);
-			lUV[1] = (2 + U00 + U01 + U10 + U11) >> 2;
+			// Sample pixels from 2x2 box
+			U00 = 128 + ((32768 + RtoUCoeff * lsrc[0 + isBGR*2] + GtoUCoeff * lsrc[1] + BtoUCoeff * lsrc[2 - isBGR*2]) >> 16);
+			U01 = 128 + ((32768 + RtoUCoeff * lsrc[0+rgbIncrement+isBGR*2] + GtoUCoeff * lsrc[1+rgbIncrement] + BtoUCoeff * lsrc[2+rgbIncrement-isBGR*2]) >> 16);
+			U10 = 128 + ((32768 + RtoUCoeff * rgbAt(lsrc, 0+isBGR*2, 1) + GtoUCoeff * rgbAt(lsrc, 1, 1) + BtoUCoeff * rgbAt(lsrc, 2-isBGR*2, 1)) >> 16);
+			U11 = 128 + ((32768 + RtoUCoeff * rgbAt(lsrc, 0+rgbIncrement+isBGR*2, 1) + GtoUCoeff * (rgbAt(lsrc, 1+rgbIncrement, 1)) + BtoUCoeff * rgbAt(lsrc, 2+rgbIncrement-isBGR*2, 1)) >> 16);
+			lUV[0] = (2 + U00 + U01 + U10 + U11) >> 2;
 
-			V00 = 128 + ((32768 + RtoVCoeff * lsrc[0] + GtoVCoeff * lsrc[1] + BtoVCoeff * lsrc[2]) >> 16);
-			V01 = 128 + ((32768 + RtoVCoeff * lsrc[0+rgbIncrement] + GtoVCoeff * lsrc[1+rgbIncrement] + BtoVCoeff * lsrc[2+rgbIncrement]) >> 16);
-			V10 = 128 + ((32768 + RtoVCoeff * rgbAt(lsrc, 0, 1) + GtoVCoeff * rgbAt(lsrc, 1, 1) + BtoVCoeff * rgbAt(lsrc, 2, 1)) >> 16);
-			V11 = 128 + ((32768 + RtoVCoeff * rgbAt(lsrc, 0+rgbIncrement, 1) + GtoVCoeff * rgbAt(lsrc, 1+rgbIncrement, 1) + BtoVCoeff * rgbAt(lsrc, 2+rgbIncrement, 1)) >> 16);
-			lUV[0] = (2 + V00 + V01 + V10 + V11) >> 2; //UV[0] ... wat?
-            
+			V00 = 128 + ((32768 + RtoVCoeff * lsrc[0+isBGR*2] + GtoVCoeff * lsrc[1] + BtoVCoeff * lsrc[2-isBGR*2]) >> 16);
+			V01 = 128 + ((32768 + RtoVCoeff * lsrc[0+rgbIncrement+isBGR*2] + GtoVCoeff * lsrc[1+rgbIncrement] + BtoVCoeff * lsrc[2+rgbIncrement-isBGR*2]) >> 16);
+			V10 = 128 + ((32768 + RtoVCoeff * rgbAt(lsrc, 0+isBGR*2, 1) + GtoVCoeff * rgbAt(lsrc, 1, 1) + BtoVCoeff * rgbAt(lsrc, 2-isBGR*2, 1)) >> 16);
+			V11 = 128 + ((32768 + RtoVCoeff * rgbAt(lsrc, 0+rgbIncrement+isBGR*2, 1) + GtoVCoeff * rgbAt(lsrc, 1+rgbIncrement, 1) + BtoVCoeff * rgbAt(lsrc, 2+rgbIncrement-isBGR*2, 1)) >> 16);
+			lUV[1] = (2 + V00 + V01 + V10 + V11) >> 2;
+
 			//UV[0] = -0.14713f * src[0] - 0.28886f * src[1] + 0.436f * src[2] + 128;
 			//UV[1] = 0.615f * src[0] - 0.51499f * src[1] - 0.10001f * src[2] + 128;
 		}

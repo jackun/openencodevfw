@@ -662,8 +662,9 @@ static void DialogUpdate(HWND hwndDlg, CodecInst* pinst)
 		SendDlgItemMessage(hwndDlg, IDC_LEVEL_CB, CB_ADDSTRING, 0, (LPARAM)L"4.0");
 		SendDlgItemMessage(hwndDlg, IDC_LEVEL_CB, CB_ADDSTRING, 0, (LPARAM)L"4.1");
 		SendDlgItemMessage(hwndDlg, IDC_LEVEL_CB, CB_ADDSTRING, 0, (LPARAM)L"4.2");
-		SendDlgItemMessage(hwndDlg, IDC_LEVEL_CB, CB_ADDSTRING, 0, (LPARAM)L"5.0 (probably not)");
-		SendDlgItemMessage(hwndDlg, IDC_LEVEL_CB, CB_ADDSTRING, 0, (LPARAM)L"5.1 (probably not)");
+		//TODO Either new drivers support it or just hawaii or newer cards
+		SendDlgItemMessage(hwndDlg, IDC_LEVEL_CB, CB_ADDSTRING, 0, (LPARAM)L"5.0 (hawaii+)");
+		SendDlgItemMessage(hwndDlg, IDC_LEVEL_CB, CB_ADDSTRING, 0, (LPARAM)L"5.1 (hawaii+)");
 		uint32 level = pinst->mConfigTable[L"level"];
 		LevelToIdx(level);
 		SendDlgItemMessage(hwndDlg, IDC_LEVEL_CB, CB_SETCURSEL, level, 0);

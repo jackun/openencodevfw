@@ -117,7 +117,7 @@ void ff_rgb24toyv12_c(const uint8 *src, uint8 *ydst, uint8 *udst,
 void RGBtoNV12 (const uint8 * rgb,
     uint8 * yuv,
     unsigned rgbIncrement,
-    uint8 flip,
+    uint8 flip, uint8 isBGR,
     int srcFrameWidth, int srcFrameHeight, uint32 alignedWidth);
 
 class CodecInst {
