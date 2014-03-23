@@ -13,6 +13,9 @@
 #define Ucoff ((float4)(-0.148f, -0.291f, 0.439f, 0.f))
 #define Vcoff ((float4)(0.439f, -0.368f, -0.071f, 0.f))
 
+#define UcoffB ((float4)(0.439f, -0.291f, -0.148f, 0))
+#define VcoffB ((float4)(-0.071f, -0.368f, 0.439f, 0))
+
 #define UpperLimit	235.0f/255.0f
 
 //#define USE_FLOAT3
@@ -220,7 +223,7 @@ __kernel void RGBAtoNV12_UV(__global uchar4 *input,
 
     float2 UV11 =  (float2)(dot(rgb11, Ucoff) + 128.f,
                             dot(rgb11, Vcoff) + 128.f);
-#endif
+#else
 
     float2 UV00 =  (float2)(-(0.148f * rgb00.x) - (0.291f * rgb00.y) + (0.439f * rgb00.z) + 128.f,
                              (0.439f * rgb00.x) - (0.368f * rgb00.y) - (0.071f * rgb00.z) + 128.f);
@@ -233,7 +236,7 @@ __kernel void RGBAtoNV12_UV(__global uchar4 *input,
 
     float2 UV11 =  (float2)(-(0.148f * rgb11.x) - (0.291f * rgb11.y) + (0.439f * rgb11.z) + 128.f,
                              (0.439f * rgb11.x) - (0.368f * rgb11.y) - (0.071f * rgb11.z) + 128.f);
-
+#endif
     float2 UV =  (2 + UV00 + UV01 + UV10 + UV11) / 4;
 #endif
 
@@ -296,13 +299,32 @@ __kernel void BGRAtoNV12_UV(__global uchar4 *input,
 
     uint src = id.x * 2 + width * id.y * 2;
 
+#if 1
+    // sample 2x2 square
+    float4 bgr00 = convert_float4(input[src]);
+    float4 bgr01 = convert_float4(input[src + 1]);
+    //next line
+    float4 bgr10 = convert_float4(input[src + width]);
+    float4 bgr11 = convert_float4(input[src + width + 1]);
+
+    float2 UV00 =  (float2)(dot(bgr00, UcoffB) + 128.f,
+                            dot(bgr00, VcoffB) + 128.f);
+
+    float2 UV01 =  (float2)(dot(bgr01, UcoffB) + 128.f,
+                            dot(bgr01, VcoffB) + 128.f);
+
+    float2 UV10 =  (float2)(dot(bgr10, UcoffB) + 128.f,
+                            dot(bgr10, VcoffB) + 128.f);
+
+    float2 UV11 =  (float2)(dot(bgr11, UcoffB) + 128.f,
+                            dot(bgr11, VcoffB) + 128.f);
+#else
     // sample 2x2 square
     uchar4 bgr00 = input[src];
     uchar4 bgr01 = input[src + 1];
     //next line
     uchar4 bgr10 = input[src + width];
     uchar4 bgr11 = input[src + width + 1];
-    
 
     float2 UV00 =  (float2)(-(0.148f * bgr00.z) - (0.291f * bgr00.y) + (0.439f * bgr00.x) + 128.f,
                              (0.439f * bgr00.z) - (0.368f * bgr00.y) - (0.071f * bgr00.x) + 128.f);
@@ -315,7 +337,7 @@ __kernel void BGRAtoNV12_UV(__global uchar4 *input,
 
     float2 UV11 =  (float2)(-(0.148f * bgr11.z) - (0.291f * bgr11.y) + (0.439f * bgr11.x) + 128.f,
                              (0.439f * bgr11.z) - (0.368f * bgr11.y) - (0.071f * bgr11.x) + 128.f);
-
+#endif
     float2 UV =  (2 + UV00 + UV01 + UV10 + UV11) / 4;
 
     output[uv_offset]     = UV.x;

@@ -164,7 +164,7 @@ void CodecInst::displayFps(OVprofile *profileCnt,cl_device_id clDeviceID )
 				}
 				else if (i == 1) {
 					mean1 = mean;
-					perf1 = freq/(mean0+mean1);//seems kinda off
+					perf1 = freq/(mean0+mean1);
 				}
 				else if (i == 2) {
 					mean2 = mean;
@@ -179,12 +179,15 @@ void CodecInst::displayFps(OVprofile *profileCnt,cl_device_id clDeviceID )
 				}
 			}
 		}
-		Log(L"VCE Frame Rate (encode+query) : %5.2f [FPS]\n", perf1);
-		Log(L"VCE Frame Rate (encode)       : %5.2f\n", mean0);
-		Log(L"VCE Frame Rate (query)        : %5.2f\n", mean1);
-		Log(L"VCE Frame Rate (copy back)    : %5.2f\n", mean3);
-		Log(L"Colourspace conv              : %5.2f\n", mean2);
-		Log(L"Whole compression             : %5.2f [FPS]\n", perf4);
+		//Log(L"VCE Frame Rate (encode+query) : %5.2f [FPS]\n", perf1);
+		Log(L"VCE Frame Rate (encode)       : %5.2f / %5.2f FPS\n", mean0, perf0);
+		if(mean1)
+		Log(L"VCE Frame Rate (query)        : %5.2f / %5.2f FPS\n", mean1, freq/mean1);
+		if(mean3)
+		Log(L"VCE Frame Rate (copy back)    : %5.2f / %5.2f FPS\n", mean3, freq/mean3);
+		if(mean2)
+		Log(L"CL colourspace conversion     : %5.2f / %5.2f FPS\n", mean2, freq/mean2);
+		Log(L"Whole compression             : %5.2f / %5.2f [FPS]\n", mean4, perf4);
 
 		if(mCLConvert && mConfigTable[L"ProfileKernels"]==1) {
 			Log(L"Y kernel                      : %f seconds (avg)\n", mCLConvert->profSecs1);

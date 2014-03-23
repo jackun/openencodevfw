@@ -239,44 +239,44 @@ bool CodecInst::yv12ToNV12(const uint8 *inData, uint32 uiHeight, uint32 uiWidth,
                uint32 alignedSurfaceWidth, int8 *pBitstreamData)
 {
     bool results=false;
-	const uint8 *fr = inData;
     const uint8  * pUplane = NULL;
     const uint8  * pVplane = NULL;
     uint8  * pUVrow = NULL;
     uint32     uiUVSize = (uiWidth*uiHeight)>>2;
     uint32     uiHalfHeight = uiHeight>>1;
     uint32     uiHalfWidth  = uiWidth>>1;
-	
-    if (fr)
+
+	const uint8 *inUV = inData + uiWidth * uiHeight;
+	uint8* pBuf = (uint8 *) pBitstreamData;
+	uint8 *pBufUV = pBuf + alignedSurfaceWidth * uiHeight;
+
+	uint32 chromaWidth = uiHalfWidth;
+	pUplane = inUV;
+	pVplane = inUV + chromaWidth*uiHalfHeight;
+
+    if (inData && pBitstreamData)
     {
         /**********************************************************************/
         /* Y plane                                                            */
         /**********************************************************************/
-        uint8* pBuf = (uint8 *) pBitstreamData;
-
-        for (uint32 h=0; h<uiHeight; h++)
+		#pragma omp parallel for
+        for (int h=0; h<uiHeight; h++)
         {
-			memcpy(pBuf, fr, sizeof(uint8) * uiWidth);
-			fr += uiWidth;
-            pBuf += alignedSurfaceWidth;
+			memcpy(pBuf + alignedSurfaceWidth * h, inData + uiWidth * h, uiWidth);
         }
 
         /**********************************************************************/
         /* UV plane                                                           */
         /**********************************************************************/
-        uint32 chromaWidth = uiHalfWidth;
-		pUplane = fr;
-		pVplane = fr + chromaWidth*uiHalfHeight;
-
-        for (uint32 h=0; h<uiHalfHeight; h++)
+		#pragma omp parallel for
+        for (int h=0; h<uiHalfHeight; h++)
         {
-			pUVrow = pBuf;
-            for (uint32 i = 0; i < chromaWidth; ++i)
+			pUVrow = pBufUV + alignedSurfaceWidth * h;
+            for (int i = 0; i < chromaWidth; ++i)
             {
                 pUVrow[i*2]     = pVplane[chromaWidth * h + i]; //V comes first
                 pUVrow[i*2 + 1] = pUplane[chromaWidth * h + i];
             }
-            pBuf += alignedSurfaceWidth;
         }
         results = true;
     }
@@ -288,28 +288,28 @@ bool CodecInst::nv12ToNV12Aligned(const uint8 *inData, uint32 uiHeight, uint32 u
                uint32 alignedSurfaceWidth, int8 *pBitstreamData)
 {
     bool results=false;
-	const uint8 *fr = inData;
+    uint8* pBuf = (uint8 *) pBitstreamData;
     uint32     uiHalfHeight = uiHeight>>1;
     uint32     uiHalfWidth  = uiWidth>>1;
-	
-    if (fr)
+
+    const uint8 *inUV = inData + uiWidth * uiHeight;
+    uint8 *pBufUV = pBuf + alignedSurfaceWidth * uiHeight;
+
+	#pragma omp parallel
+	if (inData && pBitstreamData)
     {
         // Y plane
-        uint8* pBuf = (uint8 *) pBitstreamData;
-
-        for (uint32 h=0; h<uiHeight; h++)
+		#pragma omp for
+        for (int h=0; h<uiHeight; h++)
         {
-			memcpy(pBuf, fr, sizeof(uint8) * uiWidth);
-			fr += uiWidth;
-            pBuf += alignedSurfaceWidth;
+			memcpy(pBuf + alignedSurfaceWidth * h, inData + uiWidth * h, uiWidth);
         }
 
 		// UV plane
-        for (uint32 h=0; h<uiHalfHeight; h++)
+		#pragma omp for
+        for (int h=0; h<uiHalfHeight; h++)
         {
-			memcpy(pBuf, fr, uiWidth);
-			fr += uiWidth;
-            pBuf += alignedSurfaceWidth;
+			memcpy(pBufUV + alignedSurfaceWidth * h, inUV + uiWidth * h, uiWidth);
         }
         results = true;
     }

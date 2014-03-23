@@ -745,7 +745,7 @@ int clConvert::convert(const uint8* srcPtr, cl_mem dstBuffer, bool profile)
     setKernelOffset(g_y_kernel, 0);
     setKernelOffset(g_uv_kernel, 0);
 
-    if(runKernel(g_y_kernel, g_cmd_queue[0], globalThreads, localThreads, &profSecs1, profile))
+    if(runKernel(g_y_kernel, g_cmd_queue[0], globalThreads, NULL/*localThreads*/, &profSecs1, profile))
     {
         mLog->Log(L"kernelY failed!\n");
         return FAILURE;
@@ -757,7 +757,7 @@ int clConvert::convert(const uint8* srcPtr, cl_mem dstBuffer, bool profile)
     globalThreads[1] = (globalThreads[1] >> 1);
     //globalThreads[1] -= globalThreads[1] % 2;
     //mLog->Log(L"GID: %dx%d\n", globalThreads[0],globalThreads[1]);
-    if(runKernel(g_uv_kernel, g_cmd_queue[1], globalThreads, localThreads, &profSecs2, profile))
+    if(runKernel(g_uv_kernel, g_cmd_queue[1], globalThreads, NULL/*localThreads*/, &profSecs2, profile))
     {
         mLog->Log(L"kernelUV failed!\n");
         return FAILURE;

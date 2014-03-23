@@ -11,8 +11,8 @@ DWORD CodecInst::CompressQuery(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
     if(mLog) mLog->enableLog(mConfigTable[L"Log"] == 1);
 
 	Log(L"Compression query: %d %x %dx%d\n", lpbiIn->biBitCount, lpbiIn->biCompression, lpbiIn->biWidth, lpbiIn->biHeight);
-	if(lpbiIn->biCompression)
-		Log(L"FourCC: %c%c%c%c\n", UNMAKEFOURCC(lpbiIn->biCompression));
+	//if(lpbiIn->biCompression)//needs checks or writes '\0' to log, hence fucking it up
+	//	Log(L"FourCC: %c%c%c%c\n", UNMAKEFOURCC(lpbiIn->biCompression));
     
     // check for valid format and bitdepth
     if ( lpbiIn->biCompression == 0){
@@ -622,6 +622,8 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
     /**********************************************************************/
     /* Read the input file frame by frame                                 */
     /**********************************************************************/
+    captureTimeStart(&mProfile, 2);
+
     void* mapPtr = NULL;
     if(!mUseCLConv || 
         (
@@ -630,16 +632,16 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
         )
     )
     {
-        mapPtr = clEnqueueMapBuffer( encodeHandle->clCmdQueue[0],
-                                        (cl_mem)inputSurface,
-                                        CL_TRUE, //CL_FALSE,
-                                        CL_MAP_READ | CL_MAP_WRITE,
-                                        0,
-                                        hostPtrSize,
-                                        0,
-                                        NULL,
-                                        &inMapEvt,
-                                        &status);
+        mapPtr = clEnqueueMapBuffer(encodeHandle->clCmdQueue[0],
+                                    (cl_mem)inputSurface,
+                                    CL_TRUE, //CL_FALSE,
+                                    CL_MAP_WRITE,
+                                    0,
+                                    hostPtrSize,
+                                    0,
+                                    NULL,
+                                    &inMapEvt,
+                                    &status);
 
         status = clFlush(encodeHandle->clCmdQueue[0]);
         waitForEvent(inMapEvt);
@@ -649,7 +651,6 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
     /**********************************************************************/
     /* Convert input buffer to something VCE can eat aka NV12             */
     /**********************************************************************/
-    captureTimeStart(&mProfile, 2);
     bool convertFail = false;
     if(mFormat == 32 || mFormat == 24)
     {
@@ -677,8 +678,6 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
         convertFail = true;
     }
 
-    captureTimeStop(&mProfile, 2);
-
     if(mapPtr)
     {
         cl_event unmapEvent;
@@ -692,7 +691,10 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
         waitForEvent(unmapEvent);
         status = clReleaseEvent(unmapEvent);
     }
-    if(convertFail) {
+
+    captureTimeStop(&mProfile, 2);
+
+	if(convertFail) {
 		Log(L"Conversion failed!\n");
         goto fail;
 	}
@@ -700,7 +702,6 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
     /**********************************************************************/
     /* use the input surface buffer as our Picture                        */
     /**********************************************************************/
-        
     encodeTaskInputBufferList[0].bufferType = OVE_BUFFER_TYPE_PICTURE;
     encodeTaskInputBufferList[0].buffer.pPicture =  (OVE_SURFACE_HANDLE) inputSurface;
 
@@ -785,10 +786,10 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
             
     } while(pTaskDescriptionList->status == OVE_TASK_STATUS_NONE);
     captureTimeStop(&mProfile,1);
+
     /**********************************************************************/
     /*  Write compressed frame to the output                              */
     /**********************************************************************/
-        
     //FIXME correct?
     mCompressed_size = 0;
     captureTimeStart(&mProfile, 3);
@@ -826,7 +827,6 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
             && pTaskDescriptionList[i].size_of_bitstream_data > 0)
         {
             //Copy to output buffer
-            //TODO Can output buffer be directly mapped to CL buffer?
             memcpy(finalBuffer, (uint8*)pTaskDescriptionList[i].bitstream_data, pTaskDescriptionList[i].size_of_bitstream_data);
             finalBuffer += pTaskDescriptionList[i].size_of_bitstream_data;
 

@@ -79,7 +79,7 @@ bool CodecInst::getDeviceCap(OPContextHandle oveContext,uint32 oveDeviceID,
     encodeCaps->caps.encode_cap_full->num_Profile_level         = 0;
     encodeCaps->caps.encode_cap_full->max_bit_rate              = 0;
     encodeCaps->caps.encode_cap_full->min_bit_rate              = 0;
-	encodeCaps->caps.encode_cap_full->supported_task_priority   = OVE_ENCODE_TASK_PRIORITY_LEVEL2;
+	encodeCaps->caps.encode_cap_full->supported_task_priority   = OVE_ENCODE_TASK_PRIORITY_LEVEL1;
 
     for(int32 j=0; j<OVE_MAX_NUM_PICTURE_FORMATS_H264; j++)
         encodeCaps->caps.encode_cap_full->supported_picture_formats[j] = OVE_PICTURE_FORMAT_NONE;
@@ -239,10 +239,8 @@ bool CodecInst::getPlatform(cl_platform_id &platform)
         Log(L"Couldn't find AMD platform, cannot proceed.\n");
         return false;
     }
-	else
-	{
-		return true;
-	}
+
+    return true;
 }
 
 /**
