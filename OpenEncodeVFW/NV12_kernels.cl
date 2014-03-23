@@ -1,4 +1,3 @@
-// AMD APP 2.8 SDK or 13.6beta6/13.8beta cl compiler complains about PAD() etc. being undefined :S
 //#define SATURATE_MANUALLY
 #define FLIP_RGB
 
@@ -16,15 +15,6 @@
 
 #define UpperLimit	235.0f/255.0f
 
-//Taken from http://sourceforge.net/p/ffdshow-tryout/bugs/321/
-#define gammaR 1.1
-#define gammaG 1.1
-#define gammaB 1.1
-
-#define gY  1.0/(0.299*gammaR+0.587*gammaG+0.114*gammaB)
-#define gU  1.0/sqrt (gammaB / gammaG)
-#define gV  1.0/sqrt (gammaR / gammaG)
-
 //#define USE_FLOAT3
 //#define USE_FLOAT4
 //#define USE_STAGGERED
@@ -36,17 +26,13 @@ float3 RGBtoYUV_2(uchar R, uchar G, uchar B)
     G = 16.f + G * UpperLimit;
     B = 16.f + B * UpperLimit;
 #endif
+
+    //http://www.mplayerhq.hu/DOCS/tech/colorspaces.txt
     float Y = (0.257f * R) + (0.504f * G) + (0.098f * B) + 16.f;
     float V = (0.439f * R) - (0.368f * G) - (0.071f * B) + 128.f;
     float U = -(0.148f * R) - (0.291f * G) + (0.439f * B) + 128.f;
 
-    //Taken from http://sourceforge.net/p/ffdshow-tryout/bugs/321/
-    //Possibly incorrect
-    Y = 255.0*pow((Y/255.0),gY);
-    U = 255.0*pow((U/255.0),gU);
-    V = 255.0*pow((V/255.0),gV);
-
-    //http://softpixel.com/~cwright/programming/colorspace/yuv/ still reddish
+    //http://softpixel.com/~cwright/programming/colorspace/yuv/
     //float Y = R *  .299000f + G *  .587000f + B *  .114000f;
     //float U = R * -.168736f + G * -.331264f + B *  .500000f + 128.f;
     //float V = R *  .500000f + G * -.418688f + B * -.081312f + 128.f;
@@ -95,8 +81,8 @@ __kernel void RGBAtoNV12Combined(__global uchar4 *input,
 
     //should use convert_uchar_sat_rte but that seems to slow shit down
     output[id.x + id.y * alignedWidth] = YUV.x; //convert_uchar_sat_rte(Y);
-    output[alignedWidth * height + (id.y >> 1) * alignedWidth + (id.x >> 1) * 2] = YUV.z; //V
-    output[alignedWidth * height + (id.y >> 1) * alignedWidth + (id.x >> 1) * 2 + 1] = YUV.y; //U
+    output[alignedWidth * height + (id.y >> 1) * alignedWidth + (id.x >> 1) * 2] = YUV.y;
+    output[alignedWidth * height + (id.y >> 1) * alignedWidth + (id.x >> 1) * 2 + 1] = YUV.z;
 }
 
 __kernel void BGRAtoNV12Combined(__global uchar4 *input,
@@ -122,7 +108,7 @@ __kernel void BGRAtoNV12Combined(__global uchar4 *input,
 }
 
 // Convert RGBA format to NV12
-__kernel void RGBAtoNV12(__global uchar4 *input,
+__kernel void RGBAtoNV12_Y(__global uchar4 *input,
                         __global uchar *output,
                         int alignedWidth,
                         int offset)
@@ -152,8 +138,6 @@ __kernel void RGBAtoNV12(__global uchar4 *input,
 #else
     output[offset + id.x + id.y * alignedWidth] = Y;
 #endif
-    //output[alignedWidth * height + (id.y >> 1) * alignedWidth + (id.x >> 1) * 2] = UV.z; //V
-    //output[alignedWidth * height + (id.y >> 1) * alignedWidth + (id.x >> 1) * 2 + 1] = UV.y; //U
 }
 
 // Convert only UV from RGBA format to NV12
@@ -257,7 +241,7 @@ __kernel void RGBAtoNV12_UV(__global uchar4 *input,
     output[uv_offset + 1] = UV.y;
 }
 
-__kernel void BGRAtoNV12(__global uchar4 *input,
+__kernel void BGRAtoNV12_Y(__global uchar4 *input,
                         __global uchar *output,
                         int alignedWidth,
                         int offset)
@@ -339,7 +323,7 @@ __kernel void BGRAtoNV12_UV(__global uchar4 *input,
 }
 
 // Convert RGB format to NV12. Colors seem a little off (oversaturated).
-__kernel void RGBtoNV12(__global uchar *input,
+__kernel void RGBtoNV12_Y(__global uchar *input,
                         __global uchar *output,
                         int alignedWidth,
                         int offset)
@@ -455,8 +439,7 @@ __kernel void RGBtoNV12_UV(__global uchar *input,
     output[uv_offset + 1] = UV.y;//convert_uchar_rte(UV.y);
 }
 
-/// BGR
-__kernel void BGRtoNV12(__global uchar *input,
+__kernel void BGRtoNV12_Y(__global uchar *input,
                         __global uchar *output,
                         int alignedWidth,
                         int offset)
@@ -655,5 +638,5 @@ __kernel void NV12toRGB(__global uchar *input,
 #endif
 }
 
-//AMD openCL frontend adds gibberish at the end, so add a comment here to ... comment it. Mind the editors that append carrier return (\r).
+//AMD openCL frontend adds gibberish at the end, so add a comment here to ... comment it. Mind the editors that append new line (\n).
 //

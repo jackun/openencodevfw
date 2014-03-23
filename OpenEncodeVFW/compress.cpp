@@ -1,13 +1,18 @@
 #include "stdafx.h"
 #include "OpenEncodeVFW.h"
 
+#define UNMAKEFOURCC(cc) \
+                (char)(cc & 0xFF), (char)((cc >> 8) & 0xFF), \
+                (char)((cc >> 16) & 0xFF), (char)((cc >> 24 ) & 0xFF)
 
 // check if the codec can compress the given format to the desired format
 DWORD CodecInst::CompressQuery(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpbiOut){
 
     if(mLog) mLog->enableLog(mConfigTable[L"Log"] == 1);
 
-    Log(L"Compression query: %d %x %dx%d\n", lpbiIn->biBitCount, lpbiIn->biCompression, lpbiIn->biWidth, lpbiIn->biHeight);
+	Log(L"Compression query: %d %x %dx%d\n", lpbiIn->biBitCount, lpbiIn->biCompression, lpbiIn->biWidth, lpbiIn->biHeight);
+	if(lpbiIn->biCompression)
+		Log(L"FourCC: %c%c%c%c\n", UNMAKEFOURCC(lpbiIn->biCompression));
     
     // check for valid format and bitdepth
     if ( lpbiIn->biCompression == 0){
@@ -22,7 +27,7 @@ DWORD CodecInst::CompressQuery(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
     else if ( lpbiIn->biCompression == FOURCC_YV12 //decoder has different ideas what YV12 is than yuvToNV12() :S
             || lpbiIn->biCompression == FOURCC_NV12 //have to implement compression check before this, still needs alignment
             ){
-        if ( lpbiIn->biBitCount != 12 ) {
+        if ( lpbiIn->biBitCount != 12 && lpbiIn->biBitCount != 16 ) { //Virtualdub sends NV12 as 16bits???
             return_badformat()
         }
 
@@ -570,7 +575,7 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
     cl_int err;
     uint32             numEventInWaitList = 0;
     
-    OPMemHandle		            inputSurface;
+    OPMemHandle                 inputSurface;
     ove_session                 session=encodeHandle->session;
     OVresult  res = 0;
     OPEventHandle eventRunVideoProgram;
@@ -612,13 +617,18 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
     cl_event inMapEvt;
     cl_int   status = CL_SUCCESS;
 
-    inputSurface = encodeHandle->inputSurfaces[mFrameNum%MAX_INPUT_SURFACE];
+    inputSurface = encodeHandle->inputSurfaces[0];//[mFrameNum%MAX_INPUT_SURFACE];
 
     /**********************************************************************/
     /* Read the input file frame by frame                                 */
     /**********************************************************************/
     void* mapPtr = NULL;
-    if(!mUseCLConv)
+    if(!mUseCLConv || 
+        (
+            (mFormat == 12 || mFormat == 16) && 
+            (mCompression == FOURCC_NV12 || mCompression == FOURCC_YV12)
+        )
+    )
     {
         mapPtr = clEnqueueMapBuffer( encodeHandle->clCmdQueue[0],
                                         (cl_mem)inputSurface,
@@ -651,7 +661,10 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
         else
             RGBtoNV12 (inData, (uint8 *)mapPtr, mFormat/8, 1, mConfigTable[L"IsBGRA"], pConfig->width, pConfig->height, alignedSurfaceWidth);
     }
-    else if(mFormat == 12 && (mCompression == FOURCC_NV12 || mCompression == FOURCC_YV12))
+    else if(
+        (mFormat == 12 || mFormat == 16) && 
+        (mCompression == FOURCC_NV12 || mCompression == FOURCC_YV12)
+    )
     {
         if(mConfigTable[L"YV12AsNV12"] == 1 || mCompression == FOURCC_NV12)
             convertFail = !nv12ToNV12Aligned(inData, pConfig->height, pConfig->width, alignedSurfaceWidth, (int8 *)mapPtr);
@@ -666,7 +679,7 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
 
     captureTimeStop(&mProfile, 2);
 
-    if(!mUseCLConv && mapPtr)
+    if(mapPtr)
     {
         cl_event unmapEvent;
         status = clEnqueueUnmapMemObject(encodeHandle->clCmdQueue[0],
@@ -853,25 +866,21 @@ bool CodecInst::encodeClose(OVEncodeHandle *encodeHandle)
         err = CL_SUCCESS;
         if(inputSurfaces[i])
             err = clReleaseMemObject((cl_mem)inputSurfaces[i]);
+        inputSurfaces[i] = NULL;
         if(err != CL_SUCCESS)
         {
             Log(L"\nclReleaseMemObject returned error %d\n", err);
-            return false;
         }
     }
 
-    if(encodeHandle->clCmdQueue[0])
-        err = clReleaseCommandQueue(encodeHandle->clCmdQueue[0]);
-    if(err != CL_SUCCESS)
-    {
-        Log(L"Error releasing Command queue #0\n");
-    }
-
-    if(encodeHandle->clCmdQueue[1])
-        err = clReleaseCommandQueue(encodeHandle->clCmdQueue[1]);
-    if(err != CL_SUCCESS)
-    {
-        Log(L"Error releasing Command queue #1\n");
+    for(int i=0; i<2; i++) {
+        if(encodeHandle->clCmdQueue[i])
+            err = clReleaseCommandQueue(encodeHandle->clCmdQueue[i]);
+        encodeHandle->clCmdQueue[i] = NULL;
+        if(err != CL_SUCCESS)
+        {
+            Log(L"Error releasing Command queue #%d\n", i);
+        }
     }
 
     if(encodeHandle->session)
@@ -879,7 +888,6 @@ bool CodecInst::encodeClose(OVEncodeHandle *encodeHandle)
     if(!oveErr)
     {
         Log(L"Error releasing OVE Session\n");
-        return false;
     }
     encodeHandle->session = NULL;
     return true;

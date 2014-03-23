@@ -9,7 +9,7 @@ HMODULE hmoduleVFW = 0;
 CodecInst::CodecInst() : isVistaOrNewer(false), 
 	mCLConvert(0), mRaw(0), mUseCLConv(true), mUseCPU(false), mDialogUpdated(false), buffer2(0),
 	fps_den(0), fps_num(0), frame_total(0), mParser(0), mLog(0), prev(0), buffer(0), in(0), out(0),
-	clDeviceID(0), mCpuCtx(0), mCpuDev(0) {
+	clDeviceID(0), mCpuCtx(0), mCpuDev(0), mOveContext(0) {
 /*#ifndef OPENENCODE_RELEASE
 	if ( started == 0x1337){
 		char msg[128];

@@ -350,11 +350,11 @@ int clConvert::createKernels()
     }*/
 
 	char* kernels[][2] = {
-		{"RGBAtoNV12", "RGBAtoNV12_UV"},
-		{"RGBtoNV12", "RGBtoNV12_UV"},
+		{"RGBAtoNV12_Y", "RGBAtoNV12_UV"},
+		{"RGBtoNV12_Y", "RGBtoNV12_UV"},
 
-		{"BGRAtoNV12", "BGRAtoNV12_UV"},
-		{"BGRtoNV12", "BGRtoNV12_UV"},
+		{"BGRAtoNV12_Y", "BGRAtoNV12_UV"},
+		{"BGRtoNV12_Y", "BGRtoNV12_UV"},
 	};
 
 	int i = mBGR ? 2 : 0;
