@@ -260,13 +260,15 @@ DeviceMap CodecInst::getDeviceList()
 		{
 			uint32 deviceId = hDev.deviceInfo[i].device_id;
 			cl_device_id clDevId = reinterpret_cast<cl_device_id>(deviceId);
-	
+
 			// print device name
 			size_t valueSize;
 			clGetDeviceInfo(clDevId, CL_DEVICE_NAME, 0, NULL, &valueSize);
 			char* value = (char*) malloc(valueSize);
 			clGetDeviceInfo(clDevId, CL_DEVICE_NAME, valueSize, value, NULL);
-			swprintf(tmp, 1023, L"%S", value);
+			cl_int lendian;
+			clGetDeviceInfo(clDevId, CL_DEVICE_ENDIAN_LITTLE, sizeof(lendian), &lendian, NULL);
+			swprintf(tmp, 1023, L"%S (%S)", value, lendian == CL_TRUE ? "LE" : "BE");
 			wstring wstr = tmp;
 			devs.insert(pair<cl_device_id, wstring>(clDevId, wstr));
 			free(value);

@@ -8,7 +8,7 @@
 // check if the codec can compress the given format to the desired format
 DWORD CodecInst::CompressQuery(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpbiOut){
 
-    if(mLog) mLog->enableLog(mConfigTable[L"Log"] == 1);
+    if(mLog) mLog->enableLog(mConfigTable["Log"] == 1);
 
 	Log(L"Compression query: %d %x %dx%d\n", lpbiIn->biBitCount, lpbiIn->biCompression, lpbiIn->biWidth, lpbiIn->biHeight);
 	//if(lpbiIn->biCompression)//needs checks or writes '\0' to log, hence fucking it up
@@ -59,7 +59,7 @@ DWORD CodecInst::CompressGetFormat(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER
     if ( !lpbiOut){
         return sizeof(BITMAPINFOHEADER);
     }
-    if(mLog) mLog->enableLog(mConfigTable[L"Log"] == 1);
+    if(mLog) mLog->enableLog(mConfigTable["Log"] == 1);
     Log(L"Compression query: %d %d %dx%d\n", lpbiIn->biBitCount, lpbiIn->biCompression, lpbiIn->biWidth, lpbiIn->biHeight);
 
     // make sure the input is an acceptable format
@@ -85,7 +85,7 @@ DWORD CodecInst::CompressGetFormat(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER
 
 // initalize the codec for compression
 DWORD CodecInst::CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpbiOut){
-    if(mLog) mLog->enableLog(mConfigTable[L"Log"] == 1);
+    if(mLog) mLog->enableLog(mConfigTable["Log"] == 1);
 
     if ( started == 0x1337 ){
         CompressEnd();
@@ -96,21 +96,21 @@ DWORD CodecInst::CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
         return error;
     }
 
-    mConfigTable[L"pictureWidth"] = mWidth = lpbiIn->biWidth;
-    mConfigTable[L"pictureHeight"] = mHeight = lpbiIn->biHeight;
-    //mConfigTable[L"encCropLeftOffset"] = 16 - mWidth % 16; 
-    //mConfigTable[L"encCropBottomOffset"] = 16 - mHeight % 16; 
-    mConfigTable[L"encNumMBsPerSlice"] = (int32)(ceil((float)mWidth/16.f) * ceil((float)mHeight/16.f));
-    mConfigTable[L"encVBVBufferSize"] = mConfigTable[L"encRateControlTargetBitRate"] >> 1; //half of bitrate
+    mConfigTable["pictureWidth"] = mWidth = lpbiIn->biWidth;
+    mConfigTable["pictureHeight"] = mHeight = lpbiIn->biHeight;
+    //mConfigTable["encCropLeftOffset"] = 16 - mWidth % 16; 
+    //mConfigTable["encCropBottomOffset"] = 16 - mHeight % 16; 
+    mConfigTable["encNumMBsPerSlice"] = (int32)(ceil((float)mWidth/16.f) * ceil((float)mHeight/16.f));
+    mConfigTable["encVBVBufferSize"] = mConfigTable["encRateControlTargetBitRate"] >> 1; //half of bitrate
     
     if(fps_den > 0 && fps_num>0)
     {
-        Log(L"Framerate: %d / %d %s\n", fps_num, fps_den, ( mConfigTable[L"sendFPS"]==0? L"(ignored)" : L""));
+        Log(L"Framerate: %d / %d %s\n", fps_num, fps_den, ( mConfigTable["sendFPS"]==0? L"(ignored)" : L""));
         //Just ignore, seems to work regardless (though maybe less efficient?)
-        if(mConfigTable[L"sendFPS"] == 1)
+        if(mConfigTable["sendFPS"] == 1)
         {
-            mConfigTable[L"encRateControlFrameRateNumerator"] = fps_num;
-            mConfigTable[L"encRateControlFrameRateDenominator"] = fps_den;
+            mConfigTable["encRateControlFrameRateNumerator"] = fps_num;
+            mConfigTable["encRateControlFrameRateDenominator"] = fps_den;
         }
     }
 
@@ -142,7 +142,7 @@ DWORD CodecInst::CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
     if(mDeviceHandle.numDevices == 0)
         return ICERR_INTERNAL;
 
-    uint32 idx = MIN(mConfigTable[L"UseDevice"], mDeviceHandle.numDevices - 1);
+    uint32 idx = MIN(mConfigTable["UseDevice"], mDeviceHandle.numDevices - 1);
     Log(L"Selecting device: %d\n", idx);
     uint32 deviceId = mDeviceHandle.deviceInfo[idx].device_id;
     clDeviceID = reinterpret_cast<cl_device_id>(deviceId);
@@ -188,8 +188,9 @@ DWORD CodecInst::CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
             mHeight,
             mFormat / 8,
             mLog,
-            mConfigTable[L"SpeedyMath"]==1,
-            mConfigTable[L"IsBGRA"]==1);
+            &mProfile,
+            mConfigTable["SpeedyMath"]==1,
+            mConfigTable["IsBGRA"]==1);
 
         if(!mCLConvert->init())
         {
@@ -255,11 +256,15 @@ DWORD CodecInst::CompressEnd(){
         free(buffer2);
         buffer2 = NULL;
     }
-        
+
     Log(L"CompressEnd\n");
 
     if ( started  == 0x1337 ){
-        displayFps(&mProfile, clDeviceID);
+        displayFps(mLog, &mProfile, clDeviceID);
+        if(mCLConvert && mConfigTable["ProfileKernels"]==1) {
+            Log(L"Y kernel                      : %f seconds (avg)\n", mCLConvert->profSecs1);
+            Log(L"UV kernel                     : %f seconds (avg)\n", mCLConvert->profSecs2);
+        }
     }
 
     started = 0;
@@ -331,7 +336,7 @@ DWORD CodecInst::Compress(ICCOMPRESS* icinfo, DWORD dwSize) {
     else
 #endif
     /*
-    if(mConfigTable[L"blend"] == 1)
+    if(mConfigTable["blend"] == 1)
     {
         if(icinfo->lFrameNum % 2 == 0)
         {
@@ -350,7 +355,7 @@ DWORD CodecInst::Compress(ICCOMPRESS* icinfo, DWORD dwSize) {
         ret_val = ICERR_OK;
     
     //FIXME Keyframe flag
-    if (ret_val == ICERR_OK && (mConfigTable[L"IDRframes"] > 0 && icinfo->lFrameNum % mConfigTable[L"IDRframes"] == 0 /*|| mParser->b_key*/) )
+    if (ret_val == ICERR_OK && (mConfigTable["IDRframes"] > 0 && icinfo->lFrameNum % mConfigTable["IDRframes"] == 0 /*|| mParser->b_key*/) )
     {
         //if(isH264iFrame(out))
         *icinfo->lpdwFlags = AVIIF_KEYFRAME;
@@ -508,7 +513,7 @@ bool CodecInst::encodeOpen(OVEncodeHandle *encodeHandle,OPContextHandle oveConte
     /**************************************************************************/
    
     cl_command_queue_properties prop = 0;
-    if(mConfigTable[L"ProfileKernels"] == 1)
+    if(mConfigTable["ProfileKernels"] == 1)
         prop |= CL_QUEUE_PROFILING_ENABLE;
 
     encodeHandle->clCmdQueue[0] = clCreateCommandQueue((cl_context)oveContext,
@@ -537,11 +542,11 @@ bool CodecInst::encodeOpen(OVEncodeHandle *encodeHandle,OPContextHandle oveConte
     /* NV12 is 3/2                                                            */
     /**************************************************************************/
     int32 hostPtrSize = alignedSurfaceHeight * alignedSurfaceWidth * 3/2;
-
+	cl_int mode[] = {CL_MEM_READ_ONLY, CL_MEM_WRITE_ONLY};
     for(int32 i=0; i<MAX_INPUT_SURFACE; i++)
     {
         encodeHandle->inputSurfaces[i] = clCreateBuffer((cl_context)oveContext,
-                                            CL_MEM_READ_WRITE,
+                                            mode[i%MAX_INPUT_SURFACE],
                                             hostPtrSize, 
                                             NULL, 
                                             &err);
@@ -596,9 +601,10 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
     /**************************************************************************/
     OVE_ENCODE_PARAMETERS_H264 pictureParameter;
     uint32 numEncodeTaskInputBuffers = 1;
-    OVE_INPUT_DESCRIPTION *encodeTaskInputBufferList  
-            = (OVE_INPUT_DESCRIPTION *) malloc(sizeof(OVE_INPUT_DESCRIPTION) * 
-                numEncodeTaskInputBuffers);
+    //OVE_INPUT_DESCRIPTION *encodeTaskInputBufferList  
+    //        = (OVE_INPUT_DESCRIPTION *) malloc(sizeof(OVE_INPUT_DESCRIPTION) * 
+    //            numEncodeTaskInputBuffers);
+    OVE_INPUT_DESCRIPTION encodeTaskInputBufferList[1];
 
     /**************************************************************************/
     /* For the Query Output                                                   */
@@ -633,7 +639,7 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
     )
     {
         mapPtr = clEnqueueMapBuffer(encodeHandle->clCmdQueue[0],
-                                    (cl_mem)inputSurface,
+                                    (cl_mem)encodeHandle->inputSurfaces[0],
                                     CL_TRUE, //CL_FALSE,
                                     CL_MAP_WRITE,
                                     0,
@@ -657,17 +663,23 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
         if(mUseCLConv)
         {
             //uint32 srcSize = pConfig->width * pConfig->height * (mFormat / 8);
-            convertFail = mCLConvert->convert(inData, (cl_mem)inputSurface, mConfigTable[L"ProfileKernels"]==1) != 0;
+            convertFail = mCLConvert->convert(inData, (cl_mem)encodeHandle->inputSurfaces[1], mConfigTable["ProfileKernels"]==1) != 0;
+			status = clEnqueueCopyBuffer(encodeHandle->clCmdQueue[0], 
+				(cl_mem)encodeHandle->inputSurfaces[1],
+				(cl_mem)encodeHandle->inputSurfaces[0],
+				0, 0, hostPtrSize,
+				0, NULL, NULL);
+			status = clFlush(encodeHandle->clCmdQueue[0]);
         }
         else
-            RGBtoNV12 (inData, (uint8 *)mapPtr, mFormat/8, 1, mConfigTable[L"IsBGRA"], pConfig->width, pConfig->height, alignedSurfaceWidth);
+            RGBtoNV12 (inData, (uint8 *)mapPtr, mFormat/8, 1, mConfigTable["IsBGRA"], pConfig->width, pConfig->height, alignedSurfaceWidth);
     }
     else if(
         (mFormat == 12 || mFormat == 16) && 
         (mCompression == FOURCC_NV12 || mCompression == FOURCC_YV12)
     )
     {
-        if(mConfigTable[L"YV12AsNV12"] == 1 || mCompression == FOURCC_NV12)
+        if(mConfigTable["YV12AsNV12"] == 1 || mCompression == FOURCC_NV12)
             convertFail = !nv12ToNV12Aligned(inData, pConfig->height, pConfig->width, alignedSurfaceWidth, (int8 *)mapPtr);
         else
             convertFail = !yv12ToNV12(inData, pConfig->height, pConfig->width, alignedSurfaceWidth, (int8 *)mapPtr);
@@ -682,7 +694,7 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
     {
         cl_event unmapEvent;
         status = clEnqueueUnmapMemObject(encodeHandle->clCmdQueue[0],
-                                        (cl_mem)inputSurface,
+                                        (cl_mem)encodeHandle->inputSurfaces[0],
                                         mapPtr,
                                         0,
                                         NULL,
@@ -717,8 +729,8 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
     pictureParameter.forceRefreshMap = (OVE_BOOL)true;
     pictureParameter.forceIMBPeriod = 0;
     //Force keyframe every 250 frames (like x264)
-    if(mConfigTable[L"IDRframes"] > 0)
-        pictureParameter.forcePicType = (mFrameNum % mConfigTable[L"IDRframes"] == 0) ? OVE_PICTURE_TYPE_H264_IDR : OVE_PICTURE_TYPE_H264_NONE;
+    if(mConfigTable["IDRframes"] > 0)
+        pictureParameter.forcePicType = (mFrameNum % mConfigTable["IDRframes"] == 0) ? OVE_PICTURE_TYPE_H264_IDR : OVE_PICTURE_TYPE_H264_NONE;
     else
         pictureParameter.forcePicType = OVE_PICTURE_TYPE_H264_NONE;
 
@@ -760,12 +772,10 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
         ret = false;
         goto fail;
     }
-    captureTimeStop(&mProfile,0);
 
     /**********************************************************************/
     /* Query output                                                       */
     /**********************************************************************/
-    captureTimeStart(&mProfile,1);
     numTaskDescriptionsReturned = 0;
     memset(pTaskDescriptionList,0,sizeof(OVE_OUTPUT_DESCRIPTION)*numTaskDescriptionsRequested);
     pTaskDescriptionList[0].size = sizeof(OVE_OUTPUT_DESCRIPTION);
@@ -785,7 +795,7 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
         }
             
     } while(pTaskDescriptionList->status == OVE_TASK_STATUS_NONE);
-    captureTimeStop(&mProfile,1);
+    captureTimeStop(&mProfile,0);
 
     /**********************************************************************/
     /*  Write compressed frame to the output                              */
@@ -841,7 +851,7 @@ fail:
     /**************************************************************************/
     /* Free memory resources now that we're through with them.                */
     /**************************************************************************/
-    free(encodeTaskInputBufferList);
+    //free(encodeTaskInputBufferList);
     return status == CL_SUCCESS;
 }
 

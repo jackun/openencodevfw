@@ -85,7 +85,7 @@ typedef struct _OVConfigCtrl
 /******************************************************************************/
 /* Input surface used for encoder                                             */
 /******************************************************************************/
-#define			            MAX_INPUT_SURFACE      1 //VFW can't do multiple encodes at once anyway?
+#define			            MAX_INPUT_SURFACE      2 //VFW can't do multiple encodes at once anyway?
 
 typedef struct OVDeviceHandle
 {
@@ -122,7 +122,7 @@ void RGBtoNV12 (const uint8 * rgb,
 
 class CodecInst {
 public:
-	Logger* mLog;
+	Logger *mLog;
 	bool mWarnedBuggy;
 	FILE* mRaw;
 	int started;			//if the codec has been properly initalized yet
@@ -176,7 +176,7 @@ public:
     /**************************************************************************/
     bool isVistaOrNewer;
 	OvConfigCtrl            mConfigCtrl;
-	map<wstring,int32>		mConfigTable;
+	map<string,int32>		mConfigTable;
 	DeviceMap mDevList;
 
 	//H264 ES parser
@@ -211,6 +211,7 @@ public:
 
 	bool readRegistry();
 	bool saveRegistry();
+	void quickSet(int qs);
 
 	DeviceMap getDeviceList();
 	bool createCPUContext(cl_platform_id platform);
@@ -226,7 +227,7 @@ public:
 	 *  @return bool : true if successful; otherwise false.
 	 *******************************************************************************
 	 */
-	void prepareConfigMap();
+	void prepareConfigMap(bool quickset = false);
 
 	/** 
 	 *******************************************************************************
@@ -241,7 +242,7 @@ public:
 	 *******************************************************************************
 	 */
 	bool readConfigFile(int8 *fileName, OvConfigCtrl *pConfig,
-                    std::map<std::wstring,int32>* pConfigTable);
+                    std::map<std::string,int32>* pConfigTable);
 	/** 
 	 *******************************************************************************
 	 *  @fn     encodeSetParam
@@ -253,7 +254,7 @@ public:
 	 *  @return void
 	 *******************************************************************************
 	 */
-	void encodeSetParam(OvConfigCtrl *pConfig, std::map<std::wstring,int32>* pConfigTable);
+	void encodeSetParam(OvConfigCtrl *pConfig, std::map<std::string,int32>* pConfigTable);
 
 	/** 
 	 *******************************************************************************
@@ -442,52 +443,6 @@ public:
 	 */
 	void waitForEvent(cl_event inMapEvt);
 
-	/** 
-	 *******************************************************************************
-	 *  @fn     captureTimeStop
-	 *  @brief  calculates difference between start and end timers 
-	 *           
-	 *  @param[in/out] profileCnt : Pointer to the structure containing profile counters
-	 *  @param[in]     type       : Timer type
-	 *          
-	 *  @return bool : true if successful; otherwise false.
-	 *******************************************************************************
-	 */
-	void captureTimeStop(OVprofile *profileCnt,int32 type);
-	/** 
-	 *******************************************************************************
-	 *  @fn     captureTimeStart
-	 *  @brief  Records start of the timer
-	 *           
-	 *  @param[in/out] profileCnt : Pointer to the structure containing profile counters
-	 *  @param[in]     type       : Timer type
-	 *          
-	 *  @return bool : true if successful; otherwise false.
-	 *******************************************************************************
-	 */
-	void captureTimeStart(OVprofile *profileCnt,int32 type);
-	/** 
-	 *******************************************************************************
-	 *  @fn     displayFps
-	 *  @brief  Calculates Frames per sec
-	 *           
-	 *  @param[in/out] profileCnt : Pointer to the structure containing profile counters
-	 *          
-	 *  @return bool : true if successful; otherwise false.
-	 *******************************************************************************
-	 */
-	void displayFps(OVprofile *profileCnt,cl_device_id clDeviceID);
-	/** 
-	 *******************************************************************************
-	 *  @fn     initProfileCnt
-	 *  @brief  Initialize the timers
-	 *           
-	 *  @param[in/out] profileCnt : Pointer to the structure containing profile counters
-	 *          
-	 *  @return bool : true if successful; otherwise false.
-	 *******************************************************************************
-	 */
-	void initProfileCnt(OVprofile *profileCnt);
 };
 
 CodecInst* Open(ICOPEN* icinfo);

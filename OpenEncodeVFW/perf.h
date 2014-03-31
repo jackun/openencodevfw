@@ -108,6 +108,7 @@ jurisdiction and venue of these courts.
 #include "OvEncodeTypedef.h"
 #include <stdio.h>
 #include "cl\cl.h"
+#include "log.h"
 /*******************************************************************************/
 /* Max number of timers which can be used                                      */
 /*******************************************************************************/
@@ -124,6 +125,52 @@ typedef struct profile
 	int32 callCount[MAX_TIMING]; /**< Number of times timer is called          */
 }OVprofile;
 
+/** 
+	*******************************************************************************
+	*  @fn     captureTimeStop
+	*  @brief  calculates difference between start and end timers 
+	*           
+	*  @param[in/out] profileCnt : Pointer to the structure containing profile counters
+	*  @param[in]     type       : Timer type
+	*          
+	*  @return bool : true if successful; otherwise false.
+	*******************************************************************************
+	*/
+void captureTimeStop(OVprofile *profileCnt,int32 type);
+/** 
+	*******************************************************************************
+	*  @fn     captureTimeStart
+	*  @brief  Records start of the timer
+	*           
+	*  @param[in/out] profileCnt : Pointer to the structure containing profile counters
+	*  @param[in]     type       : Timer type
+	*          
+	*  @return bool : true if successful; otherwise false.
+	*******************************************************************************
+	*/
+void captureTimeStart(OVprofile *profileCnt,int32 type);
+/** 
+	*******************************************************************************
+	*  @fn     displayFps
+	*  @brief  Calculates Frames per sec
+	*           
+	*  @param[in/out] profileCnt : Pointer to the structure containing profile counters
+	*          
+	*  @return bool : true if successful; otherwise false.
+	*******************************************************************************
+	*/
+void displayFps(Logger *, OVprofile *profileCnt,cl_device_id clDeviceID);
+/** 
+	*******************************************************************************
+	*  @fn     initProfileCnt
+	*  @brief  Initialize the timers
+	*           
+	*  @param[in/out] profileCnt : Pointer to the structure containing profile counters
+	*          
+	*  @return bool : true if successful; otherwise false.
+	*******************************************************************************
+	*/
+void initProfileCnt(OVprofile *profileCnt);
 
 /** 
  *******************************************************************************

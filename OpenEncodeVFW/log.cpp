@@ -30,9 +30,10 @@ void Logger::Log_internal(const wchar_t *psz_fmt, va_list arg)
 
 	if(mLog)
 	{
-		wchar_t msg[4096];
+		wchar_t msg[16000];
 		memset(msg, 0, sizeof(msg));
-		_vsnwprintf_s(msg, 4096, psz_fmt, arg);
+		//FIXME fcker crashes, too small buffer, dafuq it is _s then??? murmur
+		_vsnwprintf_s(msg, 16000, psz_fmt, arg);
 		fwrite(msg, sizeof(wchar_t), wcslen(msg), mLog);
 		fflush(mLog);
 	}

@@ -9,12 +9,17 @@
 #define GtoUVCoeff ((float2)((-74.494f * 256 + 0.5f), (-94.154f * 256 + 0.5f)))
 #define BtoUVCoeff ((float2)((112.439f * 256 + 0.5f), (-18.285f * 256 + 0.5f)))
 
-#define Ycoff ((float4)(0.257f, 0.504f, 0.098f, 0.f))
-#define Ucoff ((float4)(-0.148f, -0.291f, 0.439f, 0.f))
-#define Vcoff ((float4)(0.439f, -0.368f, -0.071f, 0.f))
+#define Ycoeff ((float4)(0.257f, 0.504f, 0.098f, 0.f))
+#define Ucoeff ((float4)(-0.148f, -0.291f, 0.439f, 0.f))
+#define Vcoeff ((float4)(0.439f, -0.368f, -0.071f, 0.f))
 
-#define UcoffB ((float4)(0.439f, -0.291f, -0.148f, 0))
-#define VcoffB ((float4)(-0.071f, -0.368f, 0.439f, 0))
+#define YcoeffB ((float4)(0.098f, 0.504f, 0.257f, 0.f))
+#define UcoeffB ((float4)(0.439f, -0.291f, -0.148f, 0))
+#define VcoeffB ((float4)(-0.071f, -0.368f, 0.439f, 0))
+
+#define YcoeffB3 ((float3)(0.098f, 0.504f, 0.257f))
+#define UcoeffB3 ((float3)(0.439f, -0.291f, -0.148f))
+#define VcoeffB3 ((float3)(-0.071f, -0.368f, 0.439f))
 
 #define UpperLimit	235.0f/255.0f
 
@@ -97,17 +102,18 @@ __kernel void BGRAtoNV12Combined(__global uchar4 *input,
     int width = get_global_size(0);
     int height = get_global_size(1);
 #ifdef FLIP_RGB
-    uchar4 rgba = input[id.x + width * (height - id.y - 1)];
+    float4 rgba = convert_float4(input[id.x + width * (height - id.y - 1)]);
 #else
-    uchar4 rgba = input[id.x + width * id.y];
+    float4 rgba = convert_float4(input[id.x + width * id.y]);
 #endif
 
-    float3 YUV = RGBtoYUV_2(rgba.z, rgba.y, rgba.x);
+    float Y = dot(YcoeffB, rgba) + 16.f;
+    float U = dot(UcoeffB, rgba) + 128.f; //Probably should sample 2x2
+    float V = dot(VcoeffB, rgba) + 128.f;
 
-    //should use convert_uchar_sat_rte but that seems to slow shit down
-    output[id.x + id.y * alignedWidth] = YUV.x; //convert_uchar_sat_rte(Y);
-    output[alignedWidth * height + (id.y >> 1) * alignedWidth + (id.x >> 1) * 2] = YUV.y;
-    output[alignedWidth * height + (id.y >> 1) * alignedWidth + (id.x >> 1) * 2 + 1] = YUV.z;
+    output[id.x + id.y * alignedWidth] = Y; //convert_uchar_sat_rte(Y);
+    output[alignedWidth * height + (id.y >> 1) * alignedWidth + (id.x >> 1) * 2] = U;
+    output[alignedWidth * height + (id.y >> 1) * alignedWidth + (id.x >> 1) * 2 + 1] = V;
 }
 
 // Convert RGBA format to NV12
@@ -125,7 +131,7 @@ __kernel void RGBAtoNV12_Y(__global uchar4 *input,
     float4 rgba = convert_float4(input[id.x + width * id.y]);
 
     //uchar Y = 16 + ((32768 + RtoYCoeff * rgba.x + GtoYCoeff * rgba.y + BtoYCoeff * rgba.z) / 65536);
-    //float Y = dot(rgba, Ycoff) + 16.f;
+    //float Y = dot(rgba, Ycoeff) + 16.f;
     float Y = (0.257f * rgba.x) + (0.504f * rgba.y) + (0.098f * rgba.z) + 16.f;
 
     //uchar4 rgb = input[id.x + width * id.y];
@@ -212,17 +218,17 @@ __kernel void RGBAtoNV12_UV(__global uchar4 *input,
     
 #else
 #if 0
-    float2 UV00 =  (float2)(dot(rgb00, Ucoff) + 128.f,
-                            dot(rgb00, Vcoff) + 128.f);
+    float2 UV00 =  (float2)(dot(rgb00, Ucoeff) + 128.f,
+                            dot(rgb00, Vcoeff) + 128.f);
 
-    float2 UV01 =  (float2)(dot(rgb01, Ucoff) + 128.f,
-                            dot(rgb01, Vcoff) + 128.f);
+    float2 UV01 =  (float2)(dot(rgb01, Ucoeff) + 128.f,
+                            dot(rgb01, Vcoeff) + 128.f);
 
-    float2 UV10 =  (float2)(dot(rgb10, Ucoff) + 128.f,
-                            dot(rgb10, Vcoff) + 128.f);
+    float2 UV10 =  (float2)(dot(rgb10, Ucoeff) + 128.f,
+                            dot(rgb10, Vcoeff) + 128.f);
 
-    float2 UV11 =  (float2)(dot(rgb11, Ucoff) + 128.f,
-                            dot(rgb11, Vcoff) + 128.f);
+    float2 UV11 =  (float2)(dot(rgb11, Ucoeff) + 128.f,
+                            dot(rgb11, Vcoeff) + 128.f);
 #else
 
     float2 UV00 =  (float2)(-(0.148f * rgb00.x) - (0.291f * rgb00.y) + (0.439f * rgb00.z) + 128.f,
@@ -244,7 +250,7 @@ __kernel void RGBAtoNV12_UV(__global uchar4 *input,
     output[uv_offset + 1] = UV.y;
 }
 
-__kernel void BGRAtoNV12_Y(__global uchar4 *input,
+__kernel void BGRAtoNV12_Y(const __global uchar4 *input,
                         __global uchar *output,
                         int alignedWidth,
                         int offset)
@@ -256,6 +262,8 @@ __kernel void BGRAtoNV12_Y(__global uchar4 *input,
 
     uchar4 bgra = input[id.x + width * id.y];
     float Y = (0.257f * bgra.z) + (0.504f * bgra.y) + (0.098f * bgra.x) + 16.f;
+    //float4 bgra = convert_float4(input[id.x + width * id.y]);
+    //float Y = dot(YcoeffB, bgra) + 16.f;
 
     //should use convert_uchar_sat_rte but that seems to slow shit down
 #ifdef FLIP_RGB
@@ -269,13 +277,14 @@ __kernel void BGRAtoNV12_Y(__global uchar4 *input,
 #endif
 }
 
-__kernel void BGRAtoNV12_UV(__global uchar4 *input,
+__kernel void BGRAtoNV12_UV(const __global uchar4 *input,
                         __global uchar *output,
                         int alignedWidth,
                         int offset)
 {
     int2 id = (int2)(get_global_id(0), get_global_id(1));
-    
+	//const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
+
     uint width = get_global_size(0) * 2;
     uint heightHalf = get_global_size(1);
 #ifdef USE_STAGGERED
@@ -286,7 +295,6 @@ __kernel void BGRAtoNV12_UV(__global uchar4 *input,
 
 #ifdef FLIP_RGB
 #ifdef USE_STAGGERED
-    //id.x + ( ((height*2  - offset)- id.y - 1) ) * alignedWidth
     uint uv_offset = alignedWidth * height + //Skip Y bytes
                     ( (heightHalf*2 - offset) - id.y - 1) * alignedWidth + id.x * 2;
 #else
@@ -299,6 +307,7 @@ __kernel void BGRAtoNV12_UV(__global uchar4 *input,
 
     uint src = id.x * 2 + width * id.y * 2;
 
+	//Seems like no difference between dot() and plain mul/add on GPU atleast
 #if 1
     // sample 2x2 square
     float4 bgr00 = convert_float4(input[src]);
@@ -307,17 +316,17 @@ __kernel void BGRAtoNV12_UV(__global uchar4 *input,
     float4 bgr10 = convert_float4(input[src + width]);
     float4 bgr11 = convert_float4(input[src + width + 1]);
 
-    float2 UV00 =  (float2)(dot(bgr00, UcoffB) + 128.f,
-                            dot(bgr00, VcoffB) + 128.f);
+    float2 UV00 =  (float2)(dot(bgr00, UcoeffB) + 128.f,
+                            dot(bgr00, VcoeffB) + 128.f);
 
-    float2 UV01 =  (float2)(dot(bgr01, UcoffB) + 128.f,
-                            dot(bgr01, VcoffB) + 128.f);
+    float2 UV01 =  (float2)(dot(bgr01, UcoeffB) + 128.f,
+                            dot(bgr01, VcoeffB) + 128.f);
 
-    float2 UV10 =  (float2)(dot(bgr10, UcoffB) + 128.f,
-                            dot(bgr10, VcoffB) + 128.f);
+    float2 UV10 =  (float2)(dot(bgr10, UcoeffB) + 128.f,
+                            dot(bgr10, VcoeffB) + 128.f);
 
-    float2 UV11 =  (float2)(dot(bgr11, UcoffB) + 128.f,
-                            dot(bgr11, VcoffB) + 128.f);
+    float2 UV11 =  (float2)(dot(bgr11, UcoeffB) + 128.f,
+                            dot(bgr11, VcoeffB) + 128.f);
 #else
     // sample 2x2 square
     uchar4 bgr00 = input[src];

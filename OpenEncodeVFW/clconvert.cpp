@@ -471,33 +471,38 @@ int clConvert::runKernel(cl_kernel kernel,
     if(wait) {
         status = clWaitForEvents(1, &ndrEvt);
         CHECK_OPENCL_ERROR(status, "clWaitForEvents failed.");
-        
-        // Calculate performance
-        cl_ulong startTime;
-        cl_ulong endTime;
-        
-        // Get kernel profiling info
-        status = clGetEventProfilingInfo(ndrEvt,
-                                         CL_PROFILING_COMMAND_START,
-                                         sizeof(cl_ulong),
-                                         &startTime,
-                                         0);
-        CHECK_OPENCL_ERROR(status, "clGetEventProfilingInfo failed.(startTime)");
-
-        status = clGetEventProfilingInfo(ndrEvt,
-                                         CL_PROFILING_COMMAND_END,
-                                         sizeof(cl_ulong),
-                                         &endTime,
-                                         0);
-        CHECK_OPENCL_ERROR(status, "clGetEventProfilingInfo failed.(endTime)");
-
-        // Cumulate time for each iteration
-        if(prof)
-            *prof += 1e-9 * (endTime - startTime);
-
+        profileEvent(ndrEvt, prof);
         status = clReleaseEvent(ndrEvt);
         CHECK_OPENCL_ERROR(status, "clRelease Event Failed");
     }
+    return SUCCESS;
+}
+
+int clConvert::profileEvent(cl_event evt, double *prof)
+{
+    // Calculate performance
+    cl_ulong startTime;
+    cl_ulong endTime;
+    cl_int status;
+        
+    // Get kernel profiling info
+    status = clGetEventProfilingInfo(evt,
+                                        CL_PROFILING_COMMAND_START,
+                                        sizeof(cl_ulong),
+                                        &startTime,
+                                        0);
+    CHECK_OPENCL_ERROR(status, "clGetEventProfilingInfo failed.(startTime)");
+
+    status = clGetEventProfilingInfo(evt,
+                                        CL_PROFILING_COMMAND_END,
+                                        sizeof(cl_ulong),
+                                        &endTime,
+                                        0);
+    CHECK_OPENCL_ERROR(status, "clGetEventProfilingInfo failed.(endTime)");
+
+    // Cumulate time for each iteration
+    if(prof)
+        *prof += 1e-9 * (endTime - startTime);
     return SUCCESS;
 }
 
@@ -511,23 +516,42 @@ int clConvert::encodeInit(bool staggered)
     cl_int statusCL = CL_SUCCESS;
     profSecs1 = 0;
     profSecs2 = 0;
+    prof2ndPass = false;
 
     //TODO Odd framebuffer sizes
     input_size = iWidth * iHeight * bpp_bytes;
+    //int align = 4 * bpp_bytes - 1;//or always to 16 bytes (float4)?
+    int align = 256 - 1;//or align to 256 bytes for faster memory access?
+    int input_size_aligned = (input_size + align) & ~align;
     int input_size_half = iWidth * (iHeight>>1) * bpp_bytes;
 
     //VCE encoder needs aligned input, adjust pitch here
     oAlignedWidth = ((iWidth + (256 - 1)) & ~(256 - 1));
     g_output_size = oAlignedWidth * oHeight * 3 / 2;
 
-    // Create buffer to store the YUV image
+    // Create buffer to store the source frame
     g_inputBuffer[0] = clCreateBuffer(
                                 g_context, 
-                                CL_MEM_READ_ONLY,
-                                staggered ? input_size_half : input_size, 
+								//1080p RGBA ~5GB/s *WriteBuffer, ~6.4GB/s map/memcpy, PCI-e x16 2.0
+								//640x272 RGBA >~3GB/s map/memcpy, <~3GB/s WriteBuffer
+                                CL_MEM_READ_ONLY|CL_MEM_USE_PERSISTENT_MEM_AMD,
+                                //CL_MEM_READ_ONLY|CL_MEM_ALLOC_HOST_PTR, //~6GB/s map/memcpy
+                                staggered ? input_size_half : input_size_aligned, 
                                 NULL, 
                                 &statusCL);
     CHECK_OPENCL_ERROR(statusCL , "clCreateBuffer(g_inputBuffer[0]) failed!");
+	/*cl_image_format fmt;
+	fmt.image_channel_order = CL_BGRA;
+	fmt.image_channel_data_type = CL_UNSIGNED_INT8;
+	cl_image_desc desc;
+	memset(&desc, 0, sizeof(desc));
+	desc.image_type = CL_MEM_OBJECT_IMAGE2D;
+	desc.image_height = iHeight;
+	desc.image_width = iWidth;
+	desc.image_array_size = 1;
+
+	g_inputBuffer[0] = clCreateImage(g_context, CL_MEM_READ_ONLY,// | CL_MEM_COPY_HOST_PTR, 
+		&fmt, &desc, NULL, &statusCL);*/
 
     if(staggered) {
         g_inputBuffer[1] = clCreateBuffer(
@@ -693,10 +717,13 @@ int clConvert::convert(const uint8* srcPtr, cl_mem dstBuffer, bool profile)
     cl_int status = CL_SUCCESS;
     size_t offset[] = {0, 0};
     size_t globalThreads[] = {iWidth, iHeight};
-    size_t localThreads[] = {localThreads_Max[0],
-                             localThreads_Max[1]};
+    size_t localThreads[] = {localThreads_Max[0] *
+                             localThreads_Max[1], 1};
 
     cl_event inMapEvt;
+    cl_event unmapEvent;
+    captureTimeStart(mProf, 5);
+#if 1
     mapPtr = clEnqueueMapBuffer( g_cmd_queue[0],
                         g_inputBuffer[0],
                         //g_pinnedBuffer,
@@ -712,24 +739,11 @@ int clConvert::convert(const uint8* srcPtr, cl_mem dstBuffer, bool profile)
     //sync at unmapping
     //status = clFlush(g_cmd_queue);
     //waitForEventAndRelease(&inMapEvt);
-	CHECK_OPENCL_ERROR(status, "clEnqueueMapBuffer() failed");
+    CHECK_OPENCL_ERROR(status, "clEnqueueMapBuffer() failed");
 
     //copy to mapped buffer or clEnqueueWriteBuffer instead
     memcpy(mapPtr, srcPtr, input_size);
 
-    //I guess the whole point here is that it wouldn't be a blocked write, so no use?
-    //status = clEnqueueWriteBuffer(g_cmd_queue[0],
-    //	g_inputBuffer[0],
-    //	CL_TRUE, //blocking
-    //	0,
-    //	input_size,
-    //	mapPtr, //mapped to g_pinnedBuffer
-    //	0,
-    //	NULL,
-    //	0);
-    //CHECK_OPENCL_ERROR(status, "clEnqueueWriteBuffer() failed");
-
-    cl_event unmapEvent;
     status = clEnqueueUnmapMemObject(g_cmd_queue[0],
                                     g_inputBuffer[0], 
                                     //g_pinnedBuffer,
@@ -739,6 +753,25 @@ int clConvert::convert(const uint8* srcPtr, cl_mem dstBuffer, bool profile)
                                     &unmapEvent);
     status = clFlush(g_cmd_queue[0]);
     waitForEventAndRelease(&unmapEvent);
+
+#else
+	size_t origin[] = {0,0,0};
+	size_t region[] = {iWidth,iHeight,1};
+	status = clEnqueueWriteImage(g_cmd_queue[0],
+        g_inputBuffer[0],
+        CL_TRUE,
+        origin,
+        region,
+        iWidth*bpp_bytes,
+        0,
+		srcPtr,
+		0,
+        NULL,
+        NULL);//&inMapEvt);
+    CHECK_OPENCL_ERROR(status, "clEnqueueWriteBuffer() failed");
+#endif
+    captureTimeStop(mProf, 5);
+
 
     setKernelArgs(g_y_kernel, g_inputBuffer[0], dstBuffer);
     setKernelArgs(g_uv_kernel, g_inputBuffer[0], dstBuffer);
@@ -752,9 +785,9 @@ int clConvert::convert(const uint8* srcPtr, cl_mem dstBuffer, bool profile)
     }
 
     //encoder should be feeding divideable by 2 frames anyway
-    globalThreads[0] = (globalThreads[0] >> 1);
+    globalThreads[0] = (iWidth >> 1);
     //globalThreads[0] -= globalThreads[0] % 2;
-    globalThreads[1] = (globalThreads[1] >> 1);
+    globalThreads[1] = (iHeight >> 1);
     //globalThreads[1] -= globalThreads[1] % 2;
     //mLog->Log(L"GID: %dx%d\n", globalThreads[0],globalThreads[1]);
     if(runKernel(g_uv_kernel, g_cmd_queue[1], globalThreads, NULL/*localThreads*/, &profSecs2, profile))
@@ -767,10 +800,11 @@ int clConvert::convert(const uint8* srcPtr, cl_mem dstBuffer, bool profile)
     clFinish(g_cmd_queue[1]);
 
     //average from second sample
-    if(profSecs1 > 0 ) {
+    if(prof2ndPass) {
         profSecs1 /= 2;
         profSecs2 /= 2;
-    }
+    } else 
+        prof2ndPass = true;
 
 	if(hRaw) {
 	mapPtr = clEnqueueMapBuffer( g_cmd_queue[0],

@@ -24,8 +24,7 @@ CodecInst::CodecInst() : isVistaOrNewer(false),
 	readRegistry();
 
 	//mParser = new Parser();
-	mLog = new Logger(mConfigTable[L"Log"] == 1);
-	Log(L"Init\n");
+	mLog = new Logger(mConfigTable["Log"] == 1);
 
 	memset(&mDeviceHandle, 0, sizeof(OVDeviceHandle));
 	memset(&mEncodeHandle, 0, sizeof(OVEncodeHandle));
@@ -49,10 +48,14 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD r, LPVOID) {
 }
 
 CodecInst* Open(ICOPEN* icinfo) {
-	if (icinfo && icinfo->fccType != ICTYPE_VIDEO)
+	if ((icinfo && icinfo->fccType != ICTYPE_VIDEO))
 		return NULL;
 
-	CodecInst* pinst = new CodecInst();
+	CodecInst* pinst = NULL;
+
+	if(icinfo)
+		pinst = new CodecInst();
+
 	//pinst->Log(L"Open\n");
 	/**************************************************************************/
     /* Find the version of Windows                                            */
@@ -62,28 +65,28 @@ CodecInst* Open(ICOPEN* icinfo) {
     vInfo.dwOSVersionInfoSize = sizeof(vInfo);
     if(!GetVersionEx(&vInfo))
     {
-        pinst->Log(L"Error : Unable to get Windows version information\n");
-		if (icinfo) icinfo->dwError = ICERR_INTERNAL;
-        return pinst; //FIXME Can be NULL ?
+        //pinst->Log(L"Error : Unable to get Windows version information\n");
+        MessageBoxW(NULL, L"Unable to get Windows version information.", L"Error", MB_ICONERROR);
+        if (icinfo) icinfo->dwError = ICERR_INTERNAL;
+        return NULL;
     }
 
     /**************************************************************************/
     /* Tell the user that this only runs on Win7 or Vista                     */
     /**************************************************************************/
-    if(vInfo.dwMajorVersion >= 6)
-        pinst->isVistaOrNewer = true;
-
-    if(!pinst->isVistaOrNewer)
+    if(vInfo.dwMajorVersion < 6)
+    //    pinst->isVistaOrNewer = true;
+    //if(!pinst->isVistaOrNewer)
     {
-        pinst->Log(L"Error : Unsupported OS! Vista or newer required.\n");
-		if (icinfo) icinfo->dwError = ICERR_INTERNAL;
+        //pinst->Log(L"Error : Unsupported OS! Vista or newer required.\n");
+        MessageBoxW(NULL, L"Unsupported OS! Vista or newer required.", L"Error", MB_ICONERROR);
+        if (icinfo) icinfo->dwError = ICERR_INTERNAL;
         return pinst;
     }
 
-	if (icinfo) icinfo->dwError = pinst ? ICERR_OK : ICERR_MEMORY;
-
-	if (icinfo) pinst->Log(L"Error: %d\n", icinfo->dwError);
-	return pinst;
+    if (icinfo) icinfo->dwError = pinst ? ICERR_OK : ICERR_MEMORY;
+    //Sometimes DRV_OPEN is called with lParam2 == 0, just return 1 then
+    return pinst ? pinst : (CodecInst*)1;
 }
 
 CodecInst::~CodecInst(){
@@ -144,7 +147,7 @@ DWORD CodecInst::GetInfo(ICINFO* icinfo, DWORD dwSize) {
 	icinfo->dwSize          = sizeof(ICINFO);
 	icinfo->fccType         = ICTYPE_VIDEO;
 	icinfo->fccHandler		= FOURCC_OPEN;
-	icinfo->dwFlags			= VIDCF_FASTTEMPORALC | VIDCF_FASTTEMPORALD;
+	icinfo->dwFlags			= VIDCF_FASTTEMPORALC | VIDCF_FASTTEMPORALD | VIDCF_COMPRESSFRAMES;
 	icinfo->dwVersion		= 0x00010000;
 	icinfo->dwVersionICM	= ICVERSION;
 	wcscpy_s(icinfo->szName, L"OpenEncodeVFW");

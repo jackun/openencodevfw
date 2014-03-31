@@ -10,6 +10,7 @@
 #include <CL/cl_ext.h>
 #include "OvEncodeTypedef.h"
 #include "log.h"
+#include "perf.h"
 
 #define SUCCESS 0
 #define FAILURE 1
@@ -47,18 +48,19 @@ class clConvert
 {
 public:
 	double	profSecs1,profSecs2;
+	bool prof2ndPass;
 
 	clConvert(cl_context ctx, cl_device_id dev, cl_command_queue cmdqueue[2], 
-			int width, int height, unsigned int _bpp_bytes, Logger *log, 
+			int width, int height, unsigned int _bpp_bytes, Logger *lg, OVprofile *prof,
 			bool opt = true, bool bgr = false):
 		g_context(ctx), deviceID(dev),
 		iWidth(width), oWidth(width), 
 		iHeight(height), oHeight(height), bpp_bytes(_bpp_bytes),
 		g_y_kernel(NULL), g_uv_kernel(NULL),
 		host_ptr(NULL), g_output_size(0), g_outputBuffer(NULL),
-		g_program(NULL), mLog(log),
+		g_program(NULL), mLog(lg), mProf(prof),
 		mOptimize(opt),
-		profSecs1(0), profSecs2(0),
+		profSecs1(0), profSecs2(0), prof2ndPass(false),
 		hRaw(NULL), mBGR(bgr)
 	{
 		localThreads_Max[0] = 1;
@@ -108,6 +110,7 @@ private:
 	cl_command_queue 	g_cmd_queue[2];
 	cl_program			g_program;
 	FILE				*hRaw;
+	OVprofile			*mProf;
 
 	// Kernels
 	cl_kernel           g_y_kernel;
@@ -142,6 +145,7 @@ private:
 				size_t localThreads[2],
 				double *prof,
 				bool wait);
+	int profileEvent(cl_event evt, double *prof);
 
 	template<typename T>
 	int checkVal(

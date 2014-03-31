@@ -111,7 +111,7 @@ jurisdiction and venue of these courts.
  *  @return bool : true if successful; otherwise false.
  *******************************************************************************
  */
-void CodecInst::initProfileCnt(OVprofile *profileCnt)
+void initProfileCnt(OVprofile *profileCnt)
 {
 	int32 i;
 	for(i=0;i<MAX_TIMING;i++)
@@ -131,12 +131,12 @@ void CodecInst::initProfileCnt(OVprofile *profileCnt)
  *  @return bool : true if successful; otherwise false.
  *******************************************************************************
  */
-void CodecInst::displayFps(OVprofile *profileCnt,cl_device_id clDeviceID )
+void displayFps(Logger *mLog, OVprofile *profileCnt,cl_device_id clDeviceID )
 {
-	static int32 dumped = 0; if(dumped) return; dumped = 1;
+	//static int32 dumped = 0; if(dumped) return; dumped = 1;
 	uint32 gpuFreq;
-	float32 mean0=1, mean1=1, mean2=1, mean3=1, mean4=1;
-	float32 perf0=0, perf1=0, perf2=0, perf3=0, perf4=0;
+	float32 means[MAX_TIMING];
+	float32 perfs[MAX_TIMING];
 	if(mLog) 
 	{
 		LARGE_INTEGER li, l2;
@@ -149,50 +149,28 @@ void CodecInst::displayFps(OVprofile *profileCnt,cl_device_id clDeviceID )
 		QueryPerformanceCounter(&l2);
 		int64 etime = myRdtsc();
 		freq *= ((float32)(etime-stime))/((float32)(l2.QuadPart-li.QuadPart));
-		Log(L"\nVCE Performance\n");
-		Log(L"Processor Frequency: %5.2f MHz (%6.2f)\n", freq/1000000, freq);
-		Log(L"GPU Frequency      : %6.2f MHz\n", (float32)gpuFreq);
+		mLog->Log(L"\nVCE Performance\n");
+		mLog->Log(L"Processor Frequency: %5.2f MHz (%6.2f)\n", freq/1000000, freq);
+		mLog->Log(L"GPU Frequency      : %6.2f MHz\n", (float32)gpuFreq);
 		for(int32 i = 0; i < MAX_TIMING; i++)
 		{
 			if(profileCnt->callCount[i]) {
 				float32 count =  (float32)(profileCnt->callCount[i] - SKIP_TIMING);
 				float32 mean  = ((float32) profileCnt->accSum[i])/count;
-				if (i == 0)
-				{
-					mean0 = mean;
-					perf0 = freq/mean0;
-				}
-				else if (i == 1) {
-					mean1 = mean;
-					perf1 = freq/(mean0+mean1);
-				}
-				else if (i == 2) {
-					mean2 = mean;
-				}
-				else if (i == 3) {
-					mean3 = mean;
-					perf3 = freq/(mean0+mean1+mean3);
-				}
-				else if (i == 4) {
-					mean4 = mean;
-					perf4 = freq/mean;
+				if (mean != 0){
+					means[i] = mean;
+					perfs[i] = freq/mean;
 				}
 			}
 		}
 		//Log(L"VCE Frame Rate (encode+query) : %5.2f [FPS]\n", perf1);
-		Log(L"VCE Frame Rate (encode)       : %5.2f / %5.2f FPS\n", mean0, perf0);
-		if(mean1)
-		Log(L"VCE Frame Rate (query)        : %5.2f / %5.2f FPS\n", mean1, freq/mean1);
-		if(mean3)
-		Log(L"VCE Frame Rate (copy back)    : %5.2f / %5.2f FPS\n", mean3, freq/mean3);
-		if(mean2)
-		Log(L"CL colourspace conversion     : %5.2f / %5.2f FPS\n", mean2, freq/mean2);
-		Log(L"Whole compression             : %5.2f / %5.2f [FPS]\n", mean4, perf4);
-
-		if(mCLConvert && mConfigTable[L"ProfileKernels"]==1) {
-			Log(L"Y kernel                      : %f seconds (avg)\n", mCLConvert->profSecs1);
-			Log(L"UV kernel                     : %f seconds (avg)\n", mCLConvert->profSecs2);
-		}
+		mLog->Log(L"VCE Frame Rate (encode)       : %5.2f / %5.2f FPS\n", means[0], perfs[0]);
+		if(means[3])
+		mLog->Log(L"VCE Frame Rate (copy back)    : %5.2f / %5.2f FPS\n", means[3], perfs[3]);
+		if(means[2])
+		mLog->Log(L"CL colourspace conversion     : %5.2f / %5.2f FPS\n", means[2], perfs[2]);
+		mLog->Log(L"Memory write                  : %5.2f / %5.2f [FPS]\n", means[5], perfs[5]);
+		mLog->Log(L"Whole compression             : %5.2f / %5.2f [FPS]\n", means[4], perfs[4]);
 	}
 }
 
@@ -207,7 +185,7 @@ void CodecInst::displayFps(OVprofile *profileCnt,cl_device_id clDeviceID )
  *  @return bool : true if successful; otherwise false.
  *******************************************************************************
  */
-void CodecInst::captureTimeStop(OVprofile *profileCnt, int32 type)
+void captureTimeStop(OVprofile *profileCnt, int32 type)
 {
 	if(profileCnt->callCount[type]++ >= SKIP_TIMING) 
 	{ 
@@ -226,7 +204,7 @@ void CodecInst::captureTimeStop(OVprofile *profileCnt, int32 type)
  *  @return bool : true if successful; otherwise false.
  *******************************************************************************
  */
-void CodecInst::captureTimeStart(OVprofile *profileCnt, int32 type)
+void captureTimeStart(OVprofile *profileCnt, int32 type)
 {
 	profileCnt->sTime[type] = myRdtsc();
 }
