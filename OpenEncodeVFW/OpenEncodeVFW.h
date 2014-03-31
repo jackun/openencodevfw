@@ -85,7 +85,7 @@ typedef struct _OVConfigCtrl
 /******************************************************************************/
 /* Input surface used for encoder                                             */
 /******************************************************************************/
-#define			            MAX_INPUT_SURFACE      2 //VFW can't do multiple encodes at once anyway?
+#define			            MAX_INPUT_SURFACE      1 //VFW can't do multiple encodes at once anyway?
 
 typedef struct OVDeviceHandle
 {
@@ -137,6 +137,9 @@ public:
 	unsigned int mHeight;
 	unsigned int mFormat;	//input format for compressing, output format for decompression. Also the bitdepth.
 	unsigned int mCompression;
+	uint32 mAlignedSurfaceWidth;
+	uint32 mAlignedSurfaceHeight;
+	int32  mHostPtrSize;
 	
 	unsigned int mCompressed_size;
 	clConvert *mCLConvert;

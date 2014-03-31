@@ -142,7 +142,7 @@ DWORD CodecInst::CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
     if(mDeviceHandle.numDevices == 0)
         return ICERR_INTERNAL;
 
-    uint32 idx = MIN(mConfigTable["UseDevice"], mDeviceHandle.numDevices - 1);
+    uint32 idx = MIN((uint32)mConfigTable["UseDevice"], mDeviceHandle.numDevices - 1);
     Log(L"Selecting device: %d\n", idx);
     uint32 deviceId = mDeviceHandle.deviceInfo[idx].device_id;
     clDeviceID = reinterpret_cast<cl_device_id>(deviceId);
@@ -164,7 +164,9 @@ DWORD CodecInst::CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
     if( !(encodeCreate(&mOveContext, deviceId, &mDeviceHandle) &&
         encodeOpen(&mEncodeHandle, mOveContext, deviceId, pConfigCtrl)))
     {
-        delete [] mDeviceHandle.deviceInfo;
+        if(mDeviceHandle.deviceInfo)
+            delete [] mDeviceHandle.deviceInfo;
+        mDeviceHandle.deviceInfo = NULL;
         Log(L"Failed to create encoder...\n");
         return ICERR_INTERNAL;
     }
@@ -298,7 +300,6 @@ DWORD CodecInst::CompressFramesInfo(ICCOMPRESSFRAMES *icf)
 // handed off to other functions depending on the color space and settings
 
 DWORD CodecInst::Compress(ICCOMPRESS* icinfo, DWORD dwSize) {
-    captureTimeStart(&mProfile, 4);
     out = (uint8 *)icinfo->lpOutput;
     in  = (uint8 *)icinfo->lpInput;
     BITMAPINFOHEADER *inhdr  = icinfo->lpbiInput;
@@ -311,6 +312,9 @@ DWORD CodecInst::Compress(ICCOMPRESS* icinfo, DWORD dwSize) {
                 return error;
         }
     }
+
+    //Whole compression
+    //captureTimeStart(&mProfile, 4);
 
     if ( icinfo->lpckid ){
         *icinfo->lpckid = 'cd'; // 'dc' Compressed video frame
@@ -350,12 +354,16 @@ DWORD CodecInst::Compress(ICCOMPRESS* icinfo, DWORD dwSize) {
         if(encodeProcess(&mEncodeHandle, in, out, outhdr->biSizeImage, &mConfigCtrl))
             ret_val = ICERR_OK;
     } else */
-    
+    captureTimeStart(&mProfile, 4);
     if(encodeProcess(&mEncodeHandle, in, out, outhdr->biSizeImage, &mConfigCtrl))
         ret_val = ICERR_OK;
+	captureTimeStop(&mProfile, 4);
     
     //FIXME Keyframe flag
-    if (ret_val == ICERR_OK && (mConfigTable["IDRframes"] > 0 && icinfo->lFrameNum % mConfigTable["IDRframes"] == 0 /*|| mParser->b_key*/) )
+    if (ret_val == ICERR_OK &&
+        ((mConfigTable["IDRframes"] > 0 && icinfo->lFrameNum % mConfigTable["IDRframes"] == 0)
+        /*|| mParser->b_key*/)
+    )
     {
         //if(isH264iFrame(out))
         *icinfo->lpdwFlags = AVIIF_KEYFRAME;
@@ -379,7 +387,7 @@ DWORD CodecInst::Compress(ICCOMPRESS* icinfo, DWORD dwSize) {
     }
     outhdr->biCompression = FOURCC_OPEN;
 
-    captureTimeStop(&mProfile, 4);
+    //captureTimeStop(&mProfile, 4);
     return (DWORD)ret_val;
 }
 
@@ -535,19 +543,20 @@ bool CodecInst::encodeOpen(OVEncodeHandle *encodeHandle,OPContextHandle oveConte
     /**************************************************************************/
     /* Make sure the surface is byte aligned                                  */
     /**************************************************************************/
-    uint32 alignedSurfaceWidth = ((pConfig->width + (256 - 1)) & ~(256 - 1));
-    uint32 alignedSurfaceHeight = (true) ? (pConfig->height + 31) & ~31 : 
+    mAlignedSurfaceWidth = ((pConfig->width + (256 - 1)) & ~(256 - 1));
+    mAlignedSurfaceHeight = (true) ? (pConfig->height + 31) & ~31 : 
                                       (pConfig->height + 15) & ~15;
     /**************************************************************************/
     /* NV12 is 3/2                                                            */
     /**************************************************************************/
-    int32 hostPtrSize = alignedSurfaceHeight * alignedSurfaceWidth * 3/2;
-	cl_int mode[] = {CL_MEM_READ_ONLY, CL_MEM_WRITE_ONLY};
+    mHostPtrSize = mAlignedSurfaceHeight * mAlignedSurfaceWidth * 3/2;
+	//cl_int mode[] = {CL_MEM_READ_ONLY, CL_MEM_WRITE_ONLY};
+	cl_int mode[] = {CL_MEM_WRITE_ONLY};
     for(int32 i=0; i<MAX_INPUT_SURFACE; i++)
     {
         encodeHandle->inputSurfaces[i] = clCreateBuffer((cl_context)oveContext,
                                             mode[i%MAX_INPUT_SURFACE],
-                                            hostPtrSize, 
+                                            mHostPtrSize, 
                                             NULL, 
                                             &err);
         if (err != CL_SUCCESS) 
@@ -585,16 +594,8 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
     OVresult  res = 0;
     OPEventHandle eventRunVideoProgram;
     
-    // Make sure the surface is byte aligned
-    uint32 alignedSurfaceWidth = ((pConfig->width + (256 - 1)) & ~(256 - 1));
-    uint32 alignedSurfaceHeight = (true) ? (pConfig->height + 31) & ~31 : 
-                                      (pConfig->height + 15) & ~15;
-    
-    // NV12 is 3/2
-    int32 hostPtrSize = alignedSurfaceHeight * alignedSurfaceWidth * 3/2; 
-
     // Only encoding 1 frame
-    uint32 framecount=1;
+    //uint32 framecount=1;
     
     /**************************************************************************/
     /* Setup the picture parameters                                           */
@@ -616,18 +617,11 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
     OVE_OUTPUT_DESCRIPTION pTaskDescriptionList[1];
     //TODO Move stuff up there somewhere else
 
-    /**************************************************************************/
-    /* Okay, now it's time to read/encode frame by frame                      */
-    /**************************************************************************/
-
     cl_event inMapEvt;
     cl_int   status = CL_SUCCESS;
 
     inputSurface = encodeHandle->inputSurfaces[0];//[mFrameNum%MAX_INPUT_SURFACE];
 
-    /**********************************************************************/
-    /* Read the input file frame by frame                                 */
-    /**********************************************************************/
     captureTimeStart(&mProfile, 2);
 
     void* mapPtr = NULL;
@@ -643,7 +637,7 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
                                     CL_TRUE, //CL_FALSE,
                                     CL_MAP_WRITE,
                                     0,
-                                    hostPtrSize,
+                                    mHostPtrSize,
                                     0,
                                     NULL,
                                     &inMapEvt,
@@ -663,16 +657,16 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
         if(mUseCLConv)
         {
             //uint32 srcSize = pConfig->width * pConfig->height * (mFormat / 8);
-            convertFail = mCLConvert->convert(inData, (cl_mem)encodeHandle->inputSurfaces[1], mConfigTable["ProfileKernels"]==1) != 0;
-			status = clEnqueueCopyBuffer(encodeHandle->clCmdQueue[0], 
+            convertFail = mCLConvert->convert(inData, (cl_mem)encodeHandle->inputSurfaces[0], mConfigTable["ProfileKernels"]==1) != 0;
+			/*status = clEnqueueCopyBuffer(encodeHandle->clCmdQueue[0], 
 				(cl_mem)encodeHandle->inputSurfaces[1],
 				(cl_mem)encodeHandle->inputSurfaces[0],
 				0, 0, hostPtrSize,
 				0, NULL, NULL);
-			status = clFlush(encodeHandle->clCmdQueue[0]);
+			status = clFlush(encodeHandle->clCmdQueue[0]);*/
         }
         else
-            RGBtoNV12 (inData, (uint8 *)mapPtr, mFormat/8, 1, mConfigTable["IsBGRA"], pConfig->width, pConfig->height, alignedSurfaceWidth);
+            RGBtoNV12 (inData, (uint8 *)mapPtr, mFormat/8, 1, mConfigTable["IsBGRA"], pConfig->width, pConfig->height, mAlignedSurfaceWidth);
     }
     else if(
         (mFormat == 12 || mFormat == 16) && 
@@ -680,9 +674,9 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
     )
     {
         if(mConfigTable["YV12AsNV12"] == 1 || mCompression == FOURCC_NV12)
-            convertFail = !nv12ToNV12Aligned(inData, pConfig->height, pConfig->width, alignedSurfaceWidth, (int8 *)mapPtr);
+            convertFail = !nv12ToNV12Aligned(inData, pConfig->height, pConfig->width, mAlignedSurfaceWidth, (int8 *)mapPtr);
         else
-            convertFail = !yv12ToNV12(inData, pConfig->height, pConfig->width, alignedSurfaceWidth, (int8 *)mapPtr);
+            convertFail = !yv12ToNV12(inData, pConfig->height, pConfig->width, mAlignedSurfaceWidth, (int8 *)mapPtr);
     }
     else
     {
@@ -706,10 +700,10 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
 
     captureTimeStop(&mProfile, 2);
 
-	if(convertFail) {
-		Log(L"Conversion failed!\n");
+    if(convertFail) {
+        Log(L"Conversion failed!\n");
         goto fail;
-	}
+    }
 
     /**********************************************************************/
     /* use the input surface buffer as our Picture                        */
