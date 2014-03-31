@@ -790,14 +790,14 @@ int clConvert::convert(const uint8* srcPtr, cl_mem dstBuffer, bool profile)
     globalThreads[1] = (iHeight >> 1);
     //globalThreads[1] -= globalThreads[1] % 2;
     //mLog->Log(L"GID: %dx%d\n", globalThreads[0],globalThreads[1]);
-    if(runKernel(g_uv_kernel, g_cmd_queue[1], globalThreads, NULL/*localThreads*/, &profSecs2, profile))
+    if(runKernel(g_uv_kernel, g_cmd_queue[0], globalThreads, NULL/*localThreads*/, &profSecs2, profile))
     {
         mLog->Log(L"kernelUV failed!\n");
         return FAILURE;
     }
 
     clFinish(g_cmd_queue[0]);
-    clFinish(g_cmd_queue[1]);
+    //clFinish(g_cmd_queue[1]);
 
     //average from second sample
     if(prof2ndPass) {
