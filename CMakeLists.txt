@@ -78,7 +78,7 @@ set_target_properties(${TargetName} PROPERTIES VERSION ${PLUGIN_VERSION} SOVERSI
 # post-build copy for win32
 IF(WIN32 AND NOT MINGW)
     add_custom_command( TARGET ${TargetName} PRE_BUILD
-        COMMAND if not exist "${CMAKE_SOURCE_DIR}/OpenEncode${DIR_POSTFIX}" mkdir "${CMAKE_SOURCE_DIR}/OpenEncode${DIR_POSTFIX}" )
+        COMMAND if not exist \"${CMAKE_SOURCE_DIR}/OpenEncode${DIR_POSTFIX}\" mkdir \"${CMAKE_SOURCE_DIR}/OpenEncode${DIR_POSTFIX}\" )
     add_custom_command( TARGET ${TargetName} POST_BUILD
         COMMAND copy \"$(TargetPath)\" \"${CMAKE_SOURCE_DIR}/OpenEncode${DIR_POSTFIX}\" )
 ENDIF(WIN32 AND NOT MINGW)
