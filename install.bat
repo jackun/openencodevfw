@@ -29,14 +29,14 @@ If %ERRORLEVEL% == 0 (
 	echo ===
 
 	copy OpenEncode.inf %windir%\system32\
-	REM No 64bit in the package yet
+	REM ### Remove REM from next line if you need 64bits too and 2 more lines below ###
 	REM copy OpenEncode64\OPENENCODEVFW.DLL %windir%\system32\
 	
 	REM Because something weird with windows, you have to run this from within syswow64 dir
 	copy OpenEncode.inf %windir%\SysWOW64\
 	copy OpenEncode32\OPENENCODEVFW.DLL %windir%\SysWOW64\
-
-	REM Don't do this, probably confuses 32bit uninstaller. Use differently named INF?
+	REM Probably confuses 32bit uninstaller. Add "64" suffix to INF and DLL?
+	REM ### Remove REM from next 2 lines if you need 64bits too ###
 	REM cd /d %windir%\system32\
 	REM rundll32 setupapi.dll,InstallHinfSection DefaultInstall 0 %windir%\system32\OpenEncode.inf
 
