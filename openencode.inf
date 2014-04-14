@@ -18,11 +18,16 @@ UpdateInis=OPENENC.INIs.Del
 OPENENCODE.INF=1
 OPENENCODEVFW.DLL=1
 
+;[SourceDisksFiles.amd64]
+;OPENENCODE.INF=1
+;OPENENCODEVFW.DLL=1,OpenEncode64
+
 [DestinationDirs]
 OPENENC.Files.Inf=17
 OPENENC.Files.Dll=11
 OPENENC.Files.Ini=25
 
+;FIXME Not deleted upon uninstall
 [OPENENC.Files.Inf]
 OPENENCODE.INF
 
@@ -45,7 +50,9 @@ HKLM,"Software\Microsoft\Windows NT\CurrentVersion\Drivers32",VIDC.H264,,"OPENEN
 
 HKLM,Software\Microsoft\Windows\CurrentVersion\Uninstall\OpenEncode
 HKLM,Software\Microsoft\Windows\CurrentVersion\Uninstall\OpenEncode,DisplayName,,"OpenEncodeVFW codec (Remove Only)"
-HKLM,Software\Microsoft\Windows\CurrentVersion\Uninstall\OpenEncode,UninstallString,,"rundll.exe setupx.dll,InstallHinfSection DefaultUninstall 132 %17%\OPENENCODE.INF"
+;http://msdn.microsoft.com/en-us/library/windows/hardware/ff553598%28v=vs.85%29.aspx
+;%11% - %windir%\system32 (gets translated to SysWOW64 if installed from syswow64 folder)
+HKLM,Software\Microsoft\Windows\CurrentVersion\Uninstall\OpenEncode,UninstallString,,"rundll32.exe setupapi.dll,InstallHinfSection DefaultUninstall 132 %11%\OPENENCODE.INF"
 
 [OPENENC.INIs]
 system.ini, drivers32,, "VIDC.H264=OPENENCODEVFW.DLL"

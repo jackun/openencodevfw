@@ -23,23 +23,22 @@ If %ERRORLEVEL% == 0 (
 	del CheckOS.txt 
 
 	echo ===
-	echo === 64 Bit Operating System detected, 
-	echo === but installing only 32 bit OpenEncode version.
-	echo === Edit install.bat if you need 64 bit too.
+	echo === 64 Bit Operating System detected.
 	echo ===
 
+	REM (With how currently INF is set up) setupapi seems to look for DLLs in the same folder as INF.
+	REM So just copy DLLs (aka do the installer's work twice :P) and run INF from dest. dir
+	REM Copy INF for uninstaller.
 	copy OpenEncode.inf %windir%\system32\
-	REM ### Remove REM from next line if you need 64bits too and 2 more lines below ###
-	REM copy OpenEncode64\OPENENCODEVFW.DLL %windir%\system32\
+	copy OpenEncode64\OPENENCODEVFW.DLL %windir%\system32\
 	
-	REM Because something weird with windows, you have to run this from within syswow64 dir
 	copy OpenEncode.inf %windir%\SysWOW64\
 	copy OpenEncode32\OPENENCODEVFW.DLL %windir%\SysWOW64\
-	REM Probably confuses 32bit uninstaller. Add "64" suffix to INF and DLL?
-	REM ### Remove REM from next 2 lines if you need 64bits too ###
-	REM cd /d %windir%\system32\
-	REM rundll32 setupapi.dll,InstallHinfSection DefaultInstall 0 %windir%\system32\OpenEncode.inf
-
+	
+	rundll32 setupapi.dll,InstallHinfSection DefaultInstall 0 %windir%\System32\OpenEncode.inf
+	
+	REM Because Windows-On-Windows, you have to run this from within syswow64 dir
+	REM so that windows would know it is 32bit version.
 	cd /d %windir%\SysWOW64\
 	rundll32 setupapi.dll,InstallHinfSection DefaultInstall 0 %windir%\SYSWOW64\OpenEncode.inf
 )
