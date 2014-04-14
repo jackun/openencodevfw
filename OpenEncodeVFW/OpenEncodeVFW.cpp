@@ -150,9 +150,15 @@ DWORD CodecInst::GetInfo(ICINFO* icinfo, DWORD dwSize) {
 	icinfo->dwFlags			= VIDCF_FASTTEMPORALC | VIDCF_FASTTEMPORALD | VIDCF_COMPRESSFRAMES;
 	icinfo->dwVersion		= 0x00010000;
 	icinfo->dwVersionICM	= ICVERSION;
+
+#ifdef _M_X64
+	wcscpy_s(icinfo->szName, L"OpenEncodeVFW64");
+	wcscpy_s(icinfo->szDescription, L"OpenEncodeVFW64 Encoder using AMD APP/VCE");
+#else
 	wcscpy_s(icinfo->szName, L"OpenEncodeVFW");
 	//Well, no decoder part
 	wcscpy_s(icinfo->szDescription, L"OpenEncodeVFW Encoder using AMD APP/VCE");
+#endif
 
 	return sizeof(ICINFO);
 }
