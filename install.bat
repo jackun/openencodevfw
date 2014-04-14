@@ -28,7 +28,7 @@ If %ERRORLEVEL% == 0 (
 
 	REM (With how currently INF is set up) setupapi seems to look for DLLs in the same folder as INF.
 	REM So just copy DLLs (aka do the installer's work twice :P) and run INF from dest. dir
-	REM Copy INF for uninstaller.
+	REM Copy INF for uninstaller. INF is also copied to %windir%\inf, but first run uninstaller probably removes that.
 	copy OpenEncode.inf %windir%\system32\
 	copy OpenEncode64\OPENENCODEVFW.DLL %windir%\system32\
 	
