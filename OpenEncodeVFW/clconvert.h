@@ -77,16 +77,20 @@ public:
 		Cleanup_OpenCL();
 	}
 
-	bool init()
+	/*bool init()
 	{
 		//if(setupCL() == SUCCESS && )
 		if(createKernels() == SUCCESS && encodeInit(false) == SUCCESS)
 			return true;
 		return false;
-	}
+	}*/
 
 	int convertStaggered(const uint8* srcPtr, cl_mem dstBuffer);
 	int convert(const uint8* srcPtr, cl_mem dstBuffer, bool profile);
+
+	int decodeInit();
+	int encodeInit(bool staggered, cl_mem dstBuffer);
+	int createKernels();
 
 private:
 	//cl_platform_id		platform; //OVEncode CL platform ?
@@ -124,11 +128,8 @@ private:
 	bool	mBGR;
 
 	int setupCL();
-	int decodeInit();
-	int encodeInit(bool staggered);
 	int waitForEventAndRelease(cl_event *event);
 	void Cleanup_OpenCL();
-	int createKernels();
 	bool runNV12ToRGBKernel(
 						size_t globalThreads[2],
 						size_t localThreads[2]);

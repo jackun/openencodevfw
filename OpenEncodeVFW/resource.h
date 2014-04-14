@@ -2,6 +2,7 @@
 // Microsoft Visual C++ generated include file.
 // Used by OpenEncodeVFW.rc
 //
+#define IDC_STATIC                      (-1)
 #define IDD_DIALOG1                     101
 #define IDR_OPENCL_KERNELS              103
 #define IDB_BITMAP1                     105

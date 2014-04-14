@@ -194,7 +194,8 @@ DWORD CodecInst::CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
             mConfigTable["SpeedyMath"]==1,
             mConfigTable["IsBGRA"]==1);
 
-        if(!mCLConvert->init())
+		if(!(mCLConvert->createKernels() == SUCCESS && 
+			mCLConvert->encodeInit(false, (cl_mem)mEncodeHandle.inputSurfaces[0]) == SUCCESS))
         {
             Log(L"Failed to initialize OpenCL colorspace conversion!\n");
             CompressEnd();

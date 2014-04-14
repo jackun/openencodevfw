@@ -511,7 +511,7 @@ int clConvert::decodeInit()
     return FAILURE;
 }
 
-int clConvert::encodeInit(bool staggered)
+int clConvert::encodeInit(bool staggered, cl_mem dstBuffer)
 {
     cl_int statusCL = CL_SUCCESS;
     profSecs1 = 0;
@@ -563,6 +563,12 @@ int clConvert::encodeInit(bool staggered)
         CHECK_OPENCL_ERROR(statusCL , "clCreateBuffer(g_inputBuffer[1]) failed!");
     } else
         g_inputBuffer[1] = NULL;
+
+	//overhead test
+    setKernelArgs(g_y_kernel, g_inputBuffer[0], dstBuffer);
+    setKernelArgs(g_uv_kernel, g_inputBuffer[0], dstBuffer);
+    setKernelOffset(g_y_kernel, 0);
+    setKernelOffset(g_uv_kernel, 0);
 
 	if(hRaw) {fclose(hRaw); hRaw = NULL;}
 	char tmp[1024];
@@ -772,11 +778,10 @@ int clConvert::convert(const uint8* srcPtr, cl_mem dstBuffer, bool profile)
 #endif
     captureTimeStop(mProf, 5);
 
-
-    setKernelArgs(g_y_kernel, g_inputBuffer[0], dstBuffer);
+    /*setKernelArgs(g_y_kernel, g_inputBuffer[0], dstBuffer);
     setKernelArgs(g_uv_kernel, g_inputBuffer[0], dstBuffer);
     setKernelOffset(g_y_kernel, 0);
-    setKernelOffset(g_uv_kernel, 0);
+    setKernelOffset(g_uv_kernel, 0);*/
 
     if(runKernel(g_y_kernel, g_cmd_queue[0], globalThreads, NULL/*localThreads*/, &profSecs1, profile))
     {
