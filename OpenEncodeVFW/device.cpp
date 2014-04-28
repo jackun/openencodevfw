@@ -195,7 +195,7 @@ bool CodecInst::getPlatform(cl_platform_id &platform)
 	cl_int err = clGetPlatformIDs(0, NULL, &numPlatforms);
     if (CL_SUCCESS != err)
 	{
-        Log(L"clGetPlatformIDs() failed %d\n", stderr);
+        Log(L"clGetPlatformIDs() failed %d\n", err);
         return false;
     }
 	/**************************************************************************/
@@ -207,7 +207,7 @@ bool CodecInst::getPlatform(cl_platform_id &platform)
         err = clGetPlatformIDs(numPlatforms, platforms, NULL);
         if (CL_SUCCESS != err) 
 		{
-            Log(L"clGetPlatformIDs() failed %d\n", stderr);
+            Log(L"clGetPlatformIDs() failed %d\n", err);
             delete [] platforms;
             return false;
 		}
