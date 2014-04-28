@@ -44,3 +44,7 @@ Some setting descriptions
  * `Send FPS` sets encoder framerate properties to video framerate. Should be more efficient, but not all framerates are supported by encoder. Untick to treat all videos as having 30 fps.
  * `Speedy Math` tries to speed up OpenCL floating point math by making it less accurate, but should be good enough.
  * `BGR(A) pixel format` : select if captured image is using BGR pixel format (recorded video is blue/orange) instead of RGB (like with Dxtory/D3D11).
+
+
+With newer AMD cards (hawaii+), seem to support B-frames and AVI kinda sucks with these ([see](http://guru.multimedia.cx/avi-and-b-frames/)). You may need to remux to MKV/MP4 for better audio/video sync.
+(Also [maybe](https://trac.ffmpeg.org/ticket/1979#comment:7) `ffmpeg -fflags +genpts`)
