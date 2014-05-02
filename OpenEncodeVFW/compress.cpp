@@ -53,6 +53,13 @@ LRESULT x264vfw_compress_get_size(LPBITMAPINFOHEADER lpbiOut)
     return ((lpbiOut->biWidth + 15) & ~15) * ((lpbiOut->biHeight + 31) & ~31) * 3 + 4096;
 }
 
+// get the maximum size a compressed frame will take;
+// 105% of image size + 1KB should be plenty even for random static
+DWORD CodecInst::CompressGetSize(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpbiOut){
+    //return (DWORD)( align_round(lpbiIn->biWidth,16)*lpbiIn->biHeight*lpbiIn->biBitCount/8*1.05 + 1024);
+    return x264vfw_compress_get_size(lpbiOut);
+}
+
 // return the intended compress format for the given input format
 DWORD CodecInst::CompressGetFormat(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpbiOut){
 
@@ -100,7 +107,7 @@ DWORD CodecInst::CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
     mConfigTable["pictureHeight"] = mHeight = lpbiIn->biHeight;
     //mConfigTable["encCropLeftOffset"] = 16 - mWidth % 16; 
     //mConfigTable["encCropBottomOffset"] = 16 - mHeight % 16; 
-    mConfigTable["encNumMBsPerSlice"] = (int32)(ceil((float)mWidth/16.f) * ceil((float)mHeight/16.f));
+    mConfigTable["encNumMBsPerSlice"] = ((mWidth + 15) / 16) * ((mHeight + 15) / 16);
     mConfigTable["encVBVBufferSize"] = mConfigTable["encRateControlTargetBitRate"] >> 1; //half of bitrate
     
     if(fps_den > 0 && fps_num>0)
@@ -207,14 +214,6 @@ DWORD CodecInst::CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
 
     Log(L"CompressBegin\n");
     return ICERR_OK;
-}
-
-// get the maximum size a compressed frame will take;
-// 105% of image size + 1KB should be plenty even for random static
-
-DWORD CodecInst::CompressGetSize(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpbiOut){
-    //return (DWORD)( align_round(lpbiIn->biWidth,16)*lpbiIn->biHeight*lpbiIn->biBitCount/8*1.05 + 1024);
-    return x264vfw_compress_get_size(lpbiOut);
 }
 
 // release resources when compression is done
@@ -424,6 +423,12 @@ bool CodecInst::encodeCreate(OPContextHandle *oveContext,uint32 deviceId,
         0
     };
 
+    if(deviceId == 0)
+    {
+        Log(L"No suitable devices found!\n");
+        return false;
+    }
+
     /**************************************************************************/
     /* Create OpenCL context from device's id                                 */
     /**************************************************************************/
@@ -440,11 +445,7 @@ bool CodecInst::encodeCreate(OPContextHandle *oveContext,uint32 deviceId,
         Log(L"Error in clCreateContext %d\n", err); 
         return false;
     }
-    if(deviceId == 0)
-    {
-        Log(L"No suitable devices found!\n");
-        return false;
-    }
+
     /**************************************************************************/
     /* Read the device capabilities...                                        */
     /* Device capabilities should be used to validate against the             */

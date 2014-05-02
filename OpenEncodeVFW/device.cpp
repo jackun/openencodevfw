@@ -20,7 +20,7 @@ bool CodecInst::getDevice(OVDeviceHandle *deviceHandle)
     /**************************************************************************/
 	deviceHandle->platform = NULL;
 	status = getPlatform(deviceHandle->platform);
-	if(status == FALSE)
+	if(status == false)
 	{
 		return false;
 	}
@@ -28,7 +28,7 @@ bool CodecInst::getDevice(OVDeviceHandle *deviceHandle)
     /// STEP 1: Check for GPU
 	cl_device_type dType = CL_DEVICE_TYPE_GPU;
 	status = gpuCheck(deviceHandle->platform,&dType);
-	if(status == FALSE)
+	if(status == false)
 	{
 		return false;
 	}
@@ -170,13 +170,15 @@ bool CodecInst::gpuCheck(cl_platform_id platform,cl_device_type* dType)
 												NULL,
 												NULL,
 												&err);
+	clReleaseContext(context);
 
 	if(err == CL_DEVICE_NOT_FOUND)
 	{
 		Log(L"GPU not found. Fallback to CPU\n");
 		*dType = CL_DEVICE_TYPE_CPU;
+		return false;
 	}
-	clReleaseContext(context);
+
 	return true;
 }
 /** 
