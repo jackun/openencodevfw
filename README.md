@@ -1,5 +1,4 @@
-openencodevfw
-=============
+# OpenEncodeVFW
 
 VFW encoder for AMD VCE h264 encoder. Usable with Virtualdub, Dxtory etc.
 
@@ -7,8 +6,29 @@ https://github.com/jackun/openencodevfw/archive/master.zip
 
 Extra settings are saved to registry under `HKCU\Software\OpenEncodeVFW`
 
-Installing
-============
+## Compatible hardware
+
+AMD's GCN based cards and APUs.
+From [AMD's blog](http://developer.amd.com/community/blog/2014/02/19/introducing-video-coding-engine-vce/):
+
+| VCE Version | Product Family | Distinguishing Features |
+| :---------: |:--------------:| -----------------------|
+| VCE 1.0     | Radeon HD 7900 series/Radeon R9 280X dGPU | First release: AVC – I,P and DEM |
+|             | Radeon HD 7800 series dGPU | |
+|             | Radeon R9 270X/270 dGPU    | |
+|             | Radeon HD 7700 series/Radeon R7 250X dGPU | |
+|             | A10 – 58XX (and other variations) APU | |
+|             | A10 – 68XX APU | |
+| | | |
+| VCE 2.0     | Radeon R9 290x/290 dGPU | SVC (temporal) + B-pictures + DEM improvements |
+|             | Radeon R7 260X/260 dGPU | |
+|             | A10 – 7850K APU         | |
+|             | A4-5350, A4-3850, or E1-2650 APU | |
+|             | A4-1200/A6-1450 APU | |
+
+
+
+## Installing
 
  * Unpack the archive somewhere, right click on `install.bat` and click `Run as Administrator`.
 
@@ -18,8 +38,8 @@ If it complains about missing files, try the more manual version:
  * Go to unpacked folder by typing into opened command prompt `cd some\where\OpenEncodeVFW-bin`. 
  * Type `install.bat` and press enter to run the installer.
 
-Uninstalling
-============
+## Uninstalling
+
 If uninstaller fails its job, manually remove these registry keys:
 
 	HKLM\SYSTEM\CurrentControlSet\Control\MediaResources\icm\VIDC.H264
@@ -29,10 +49,9 @@ If uninstaller fails its job, manually remove these registry keys:
 and `OPENENCODEVFW.DLL` in %WINDIR%\syswow64 or %WINDIR%\system32
 
 
-Some setting descriptions
-=======
+## Some setting descriptions
 
- * `Fixed QP` basically keeps picture quality constant across all frames. Unpredictable (usually) file sizes.
+ * `Fixed QP` basically keeps picture quality constant across all frames.
  * `CBR` keeps constant bitrate so picture quality gets worse if there is frequently fast motion in video and bitrate is too low or wastes harddrive space if frame could have been compressed more.
  * `VBR` uses variable bitrate, tries to keep in target bitrate but rises bitrate a little bit if needed or lowers if frame can be compressed more.
  
