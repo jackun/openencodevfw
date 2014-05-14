@@ -13,7 +13,12 @@ DWORD CodecInst::CompressQuery(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
 	Log(L"Compression query: %d %x %dx%d\n", lpbiIn->biBitCount, lpbiIn->biCompression, lpbiIn->biWidth, lpbiIn->biHeight);
 	//if(lpbiIn->biCompression)//needs checks or writes '\0' to log, hence fucking it up
 	//	Log(L"FourCC: %c%c%c%c\n", UNMAKEFOURCC(lpbiIn->biCompression));
-    
+
+	/*if(lpbiIn->biCompression == BI_BITFIELDS)
+	{
+		RGBQUAD *pColor = (RGBQUAD*)((LPSTR)lpbiIn + lpbiIn->biSize);
+	}*/
+
     // check for valid format and bitdepth
     if ( lpbiIn->biCompression == 0){
         if(lpbiIn->biBitCount != 24 && lpbiIn->biBitCount != 32)
@@ -105,9 +110,11 @@ DWORD CodecInst::CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
 
     mConfigTable["pictureWidth"] = mWidth = lpbiIn->biWidth;
     mConfigTable["pictureHeight"] = mHeight = lpbiIn->biHeight;
-    //mConfigTable["encCropLeftOffset"] = 16 - mWidth % 16; 
-    //mConfigTable["encCropBottomOffset"] = 16 - mHeight % 16; 
-    mConfigTable["encNumMBsPerSlice"] = ((mWidth + 15) / 16) * ((mHeight + 15) / 16);
+    
+    int numH = ((mHeight + 15) / 16), numW = ((mWidth + 15) / 16);
+    //mConfigTable["encCropRightOffset"] = (numW * 16 - mWidth) >> 1;
+    mConfigTable["encCropBottomOffset"] = (numH * 16 - mHeight) >> 1;
+    mConfigTable["encNumMBsPerSlice"] = numW * numH;
     mConfigTable["encVBVBufferSize"] = mConfigTable["encRateControlTargetBitRate"] >> 1; //half of bitrate
     
     if(fps_den > 0 && fps_num>0)

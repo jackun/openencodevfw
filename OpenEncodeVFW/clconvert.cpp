@@ -484,7 +484,10 @@ int clConvert::profileEvent(cl_event evt, double *prof)
     cl_ulong startTime;
     cl_ulong endTime;
     cl_int status;
-        
+
+    if(!prof)
+        return SUCCESS;
+
     // Get kernel profiling info
     status = clGetEventProfilingInfo(evt,
                                         CL_PROFILING_COMMAND_START,
@@ -501,8 +504,7 @@ int clConvert::profileEvent(cl_event evt, double *prof)
     CHECK_OPENCL_ERROR(status, "clGetEventProfilingInfo failed.(endTime)");
 
     // Cumulate time for each iteration
-    if(prof)
-        *prof += 1e-9 * (endTime - startTime);
+    *prof += 1e-9 * (endTime - startTime);
     return SUCCESS;
 }
 
@@ -742,10 +744,10 @@ int clConvert::convert(const uint8* srcPtr, cl_mem dstBuffer, bool profile)
                         NULL,
                         NULL,//&inMapEvt,
                         &status);
+    CHECK_OPENCL_ERROR(status, "clEnqueueMapBuffer() failed");
     //sync at unmapping
     //status = clFlush(g_cmd_queue);
     //waitForEventAndRelease(&inMapEvt);
-    CHECK_OPENCL_ERROR(status, "clEnqueueMapBuffer() failed");
 
     //copy to mapped buffer or clEnqueueWriteBuffer instead
     memcpy(mapPtr, srcPtr, input_size);
@@ -822,9 +824,9 @@ int clConvert::convert(const uint8* srcPtr, cl_mem dstBuffer, bool profile)
                         NULL,
                         &inMapEvt,
                         &status);
+    CHECK_OPENCL_ERROR(status, "clEnqueueMapBuffer() failed");
     status = clFlush(g_cmd_queue[0]);
     waitForEventAndRelease(&inMapEvt);
-    CHECK_OPENCL_ERROR(status, "clEnqueueMapBuffer() failed");
 	fwrite(mapPtr, 1, g_output_size, hRaw);
     status = clEnqueueUnmapMemObject(g_cmd_queue[0],
                                     dstBuffer,
