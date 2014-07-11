@@ -133,7 +133,6 @@ DWORD CodecInst::CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
     OvConfigCtrl *pConfigCtrl = (OvConfigCtrl *) &mConfigCtrl;
     memset (pConfigCtrl, 0, sizeof (OvConfigCtrl));
     encodeSetParam(pConfigCtrl, &mConfigTable);
-	pConfigCtrl->rateControl.encGOPSize = 
 
     mCompression = lpbiIn->biCompression;
     mFormat = lpbiIn->biBitCount;
