@@ -174,11 +174,10 @@ void CodecInst::LogMsg(bool msgBox, const wchar_t *psz_fmt, ...)
 
 	if(msgBox)
 	{
-		wchar_t msg[4096];
-		memset(msg, 0, sizeof(msg));
-		//FIXME fcker crashes, too small buffer, dafuq it is _s then??? murmur
-		_vsnwprintf_s(msg, sizeof(msg), _TRUNCATE, psz_fmt, arg);
-		MessageBox(NULL, msg, L"Warning", 0);
+		int bufsize = _vscwprintf(psz_fmt, arg) + 1;
+		std::vector<wchar_t> msg(bufsize);
+		_vsnwprintf_s(&msg[0], bufsize, bufsize-1, psz_fmt, arg);
+		MessageBox(NULL, &msg[0], L"Warning", 0);
 	}
 	va_end(arg);
 }
