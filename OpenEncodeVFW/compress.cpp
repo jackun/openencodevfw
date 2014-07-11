@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "OpenEncodeVFW.h"
 
+#define Log(...) LogMsg(false, __VA_ARGS__)
 #define UNMAKEFOURCC(cc) \
                 (char)(cc & 0xFF), (char)((cc >> 8) & 0xFF), \
                 (char)((cc >> 16) & 0xFF), (char)((cc >> 24 ) & 0xFF)
@@ -10,14 +11,14 @@ DWORD CodecInst::CompressQuery(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
 
     if(mLog) mLog->enableLog(mConfigTable["Log"] == 1);
 
-	Log(L"Compression query: %d %x %dx%d\n", lpbiIn->biBitCount, lpbiIn->biCompression, lpbiIn->biWidth, lpbiIn->biHeight);
-	//if(lpbiIn->biCompression)//needs checks or writes '\0' to log, hence fucking it up
-	//	Log(L"FourCC: %c%c%c%c\n", UNMAKEFOURCC(lpbiIn->biCompression));
+    Log(L"Compression query: %d %x %dx%d\n", lpbiIn->biBitCount, lpbiIn->biCompression, lpbiIn->biWidth, lpbiIn->biHeight);
+    //if(lpbiIn->biCompression)//needs checks or writes '\0' to log, hence fucking it up
+    //	Log(L"FourCC: %c%c%c%c\n", UNMAKEFOURCC(lpbiIn->biCompression));
 
-	/*if(lpbiIn->biCompression == BI_BITFIELDS)
-	{
-		RGBQUAD *pColor = (RGBQUAD*)((LPSTR)lpbiIn + lpbiIn->biSize);
-	}*/
+    /*if(lpbiIn->biCompression == BI_BITFIELDS)
+    {
+        RGBQUAD *pColor = (RGBQUAD*)((LPSTR)lpbiIn + lpbiIn->biSize);
+    }*/
 
     // check for valid format and bitdepth
     if ( lpbiIn->biCompression == 0){
@@ -113,7 +114,8 @@ DWORD CodecInst::CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
     
     int numH = ((mHeight + 15) / 16), numW = ((mWidth + 15) / 16);
     //mConfigTable["encCropRightOffset"] = (numW * 16 - mWidth) >> 1;
-    mConfigTable["encCropBottomOffset"] = (numH * 16 - mHeight) >> 1;
+    if(mConfigTable["crop"])
+        mConfigTable["encCropBottomOffset"] = (numH * 16 - mHeight) >> 1;
     mConfigTable["encNumMBsPerSlice"] = numW * numH;
     mConfigTable["encVBVBufferSize"] = mConfigTable["encRateControlTargetBitRate"] >> 1; //half of bitrate
     
@@ -131,6 +133,7 @@ DWORD CodecInst::CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
     OvConfigCtrl *pConfigCtrl = (OvConfigCtrl *) &mConfigCtrl;
     memset (pConfigCtrl, 0, sizeof (OvConfigCtrl));
     encodeSetParam(pConfigCtrl, &mConfigTable);
+	pConfigCtrl->rateControl.encGOPSize = 
 
     mCompression = lpbiIn->biCompression;
     mFormat = lpbiIn->biBitCount;
@@ -143,7 +146,7 @@ DWORD CodecInst::CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
     status = getDevice(&mDeviceHandle);
     if (status == false)
     {
-        Log(L"Failed to initializing Encoder...\n");
+        LogMsg(mMsgBox, L"Failed to get devices...\n");
         return ICERR_INTERNAL;
     }
 
@@ -160,6 +163,12 @@ DWORD CodecInst::CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
     Log(L"Selecting device: %d\n", idx);
     uint32 deviceId = mDeviceHandle.deviceInfo[idx].device_id;
     clDeviceID = reinterpret_cast<cl_device_id>(deviceId);
+
+#ifdef _M_X64
+    // May ${DEITY} have mercy on us all.
+    intptr_t ptr = intptr_t((intptr_t*)&clDeviceID);
+    clDeviceID = (cl_device_id)((intptr_t)clDeviceID | (ptr & 0xFFFFFFFF00000000));
+#endif
     
      // print device name
     size_t valueSize;
@@ -175,13 +184,17 @@ DWORD CodecInst::CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
         sizeof(maxComputeUnits), &maxComputeUnits, NULL);
     Log(L"Parallel compute units: %d\n", maxComputeUnits);
 
-    if( !(encodeCreate(&mOveContext, deviceId, &mDeviceHandle) &&
-        encodeOpen(&mEncodeHandle, mOveContext, deviceId, pConfigCtrl)))
+    if(!encodeCreate(&mOveContext, deviceId, &mDeviceHandle))
     {
-        if(mDeviceHandle.deviceInfo)
-            delete [] mDeviceHandle.deviceInfo;
-        mDeviceHandle.deviceInfo = NULL;
-        Log(L"Failed to create encoder...\n");
+        CompressEnd();
+        LogMsg(mMsgBox, L"Failed to create encoder...\n");
+        return ICERR_INTERNAL;
+    }
+
+    if(!encodeOpen(&mEncodeHandle, mOveContext, deviceId, pConfigCtrl))
+    {
+        CompressEnd();
+        LogMsg(mMsgBox, L"Failed to open encoder session. You may need to restart your computer.\n");
         return ICERR_INTERNAL;
     }
 
@@ -206,12 +219,12 @@ DWORD CodecInst::CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
             mLog,
             &mProfile,
             mConfigTable["SpeedyMath"]==1,
-            mConfigTable["IsBGRA"]==1);
+            mConfigTable["SwitchByteOrder"]==1);
 
-		if(!(mCLConvert->createKernels() == SUCCESS && 
-			mCLConvert->encodeInit(false, (cl_mem)mEncodeHandle.inputSurfaces[0]) == SUCCESS))
+        if(!(mCLConvert->createKernels() == SUCCESS && 
+            mCLConvert->encodeInit(false, (cl_mem)mEncodeHandle.inputSurfaces[0]) == SUCCESS))
         {
-            Log(L"Failed to initialize OpenCL colorspace conversion!\n");
+            LogMsg(mMsgBox, L"Failed to initialize OpenCL colorspace conversion!\n");
             CompressEnd();
             return ICERR_INTERNAL;
         }
@@ -252,18 +265,6 @@ DWORD CodecInst::CompressEnd(){
     {
         delete [] mDeviceHandle.deviceInfo;
         mDeviceHandle.deviceInfo = NULL;
-    }
-
-    if(prev) 
-    {
-        free(prev);
-        prev = NULL;
-    }
-
-    if(buffer2)
-    {
-        free(buffer2);
-        buffer2 = NULL;
     }
 
     Log(L"CompressEnd\n");
@@ -307,8 +308,10 @@ DWORD CodecInst::CompressFramesInfo(ICCOMPRESSFRAMES *icf)
 // handed off to other functions depending on the color space and settings
 
 DWORD CodecInst::Compress(ICCOMPRESS* icinfo, DWORD dwSize) {
+    const uint8 * in;
+    uint8 * out;
     out = (uint8 *)icinfo->lpOutput;
-    in  = (uint8 *)icinfo->lpInput;
+    in  = (const uint8 *)icinfo->lpInput;
     BITMAPINFOHEADER *inhdr  = icinfo->lpbiInput;
     BITMAPINFOHEADER *outhdr = icinfo->lpbiOutput;
 
@@ -329,69 +332,24 @@ DWORD CodecInst::Compress(ICCOMPRESS* icinfo, DWORD dwSize) {
 
     int ret_val = ICERR_ERROR;
     
-#if NO_BUGGY_APPS
-    //Log(L"Buffer size: %d  Bits: %d %d \n", outhdr->biSizeImage, inhdr->biBitCount, inhdr->biCompression);
-    //Dxtory sends new buffer with previous compressed size and so it may be smaller than needed.
-    //So hopefully new buffer is big enough
-    if(prev)
-    {
-        if( outhdr->biSizeImage >= mCompressed_size )
-        {
-            Log(L"Feeding previous buffer.\n");
-            ret_val = ICERR_OK;
-            memcpy((uint8*)out, prev, outhdr->biSizeImage);
-            free(prev);
-            prev = NULL;
-        }
-    }
-    else
-#endif
-    /*
-    if(mConfigTable["blend"] == 1)
-    {
-        if(icinfo->lFrameNum % 2 == 0)
-        {
-            if(!buffer2)
-                buffer2 = (uint8*)malloc(x264vfw_compress_get_size(inhdr));
-            memcpy(buffer2, in, inhdr->biSizeImage);
-            ret_val = ICERR_OK;
-        }
-
-        if(icinfo->lFrameNum % 2 == 1 || icinfo->lFrameNum == 0)
-        if(encodeProcess(&mEncodeHandle, in, out, outhdr->biSizeImage, &mConfigCtrl))
-            ret_val = ICERR_OK;
-    } else */
     captureTimeStart(&mProfile, 4);
     if(encodeProcess(&mEncodeHandle, in, out, outhdr->biSizeImage, &mConfigCtrl))
         ret_val = ICERR_OK;
-	captureTimeStop(&mProfile, 4);
+    captureTimeStop(&mProfile, 4);
     
     //FIXME Keyframe flag
     if (ret_val == ICERR_OK &&
         ((mConfigTable["IDRframes"] > 0 && icinfo->lFrameNum % mConfigTable["IDRframes"] == 0)
-        /*|| mParser->b_key*/)
+        || mHasIDR)
     )
     {
-        //if(isH264iFrame(out))
         *icinfo->lpdwFlags = AVIIF_KEYFRAME;
         //Log(L"Keyframe: %d\n", icinfo->lFrameNum);
     }
     else
         *icinfo->lpdwFlags = 0;
 
-    //Requesting bigger buffer leads to corrupt video from Dxtory :( so disregard output buffer biSizeImage
-#if NO_BUGGY_APPS
-    if(prev)
-    {
-        ((uint8*)icinfo->lpOutput)[0] = 0x7f;
-        outhdr->biSizeImage = 1;
-        outhdr->biCompression = FOURCC_OPEN;
-    }
-    else
-#endif
-    {
-        outhdr->biSizeImage = mCompressed_size;
-    }
+    outhdr->biSizeImage = mCompressed_size;
     outhdr->biCompression = FOURCC_OPEN;
 
     //captureTimeStop(&mProfile, 4);
@@ -500,32 +458,6 @@ bool CodecInst::encodeOpen(OVEncodeHandle *encodeHandle,OPContextHandle oveConte
     cl_int err;
     
     /**************************************************************************/
-    /* Create an OVE Session                                                  */
-    /**************************************************************************/
-    encodeHandle->session = OVEncodeCreateSession(oveContext,  /**<Platform context */
-                                    deviceId,               /**< device id */
-                                    pConfig->encodeMode,    /**< encode mode */
-                                    pConfig->profileLevel,  /**< encode profile */
-                                    pConfig->pictFormat,    /**< encode format */
-                                    pConfig->width,         /**< width */
-                                    pConfig->height,        /**< height */
-                                    pConfig->priority);     /**< encode task priority, ie. FOR POSSIBLY LOW LATENCY OVE_ENCODE_TASK_PRIORITY_LEVEL2 */
-    if(encodeHandle->session == NULL) 
-    {
-        Log(L"\nOVEncodeCreateSession failed.\n");
-        return false;
-    }
-    /**************************************************************************/
-    /* Configure the encoding engine based upon the config file               */
-    /* specifications                                                         */
-    /**************************************************************************/
-    res = setEncodeConfig(encodeHandle->session,pConfig);
-    if (!res)
-    {
-        return false;
-    }
-
-    /**************************************************************************/
     /* Create a command queue                                                 */
     /**************************************************************************/
    
@@ -559,8 +491,8 @@ bool CodecInst::encodeOpen(OVEncodeHandle *encodeHandle,OPContextHandle oveConte
     /* NV12 is 3/2                                                            */
     /**************************************************************************/
     mHostPtrSize = mAlignedSurfaceHeight * mAlignedSurfaceWidth * 3/2;
-	//cl_int mode[] = {CL_MEM_READ_ONLY, CL_MEM_WRITE_ONLY};
-	cl_int mode[] = {CL_MEM_WRITE_ONLY};
+    //cl_int mode[] = {CL_MEM_READ_ONLY, CL_MEM_WRITE_ONLY};
+    cl_int mode[] = {CL_MEM_WRITE_ONLY};
     for(int32 i=0; i<MAX_INPUT_SURFACE; i++)
     {
         encodeHandle->inputSurfaces[i] = clCreateBuffer((cl_context)oveContext,
@@ -573,6 +505,32 @@ bool CodecInst::encodeOpen(OVEncodeHandle *encodeHandle,OPContextHandle oveConte
             Log(L"\nclCreateBuffer returned error %d\n", err);
             return false;
         }
+    }
+
+    /**************************************************************************/
+    /* Create an OVE Session                                                  */
+    /**************************************************************************/
+    encodeHandle->session = OVEncodeCreateSession(oveContext,  /**<Platform context */
+                                    deviceId,               /**< device id */
+                                    pConfig->encodeMode,    /**< encode mode */
+                                    pConfig->profileLevel,  /**< encode profile */
+                                    pConfig->pictFormat,    /**< encode format */
+                                    pConfig->width,         /**< width */
+                                    pConfig->height,        /**< height */
+                                    pConfig->priority);     /**< encode task priority, ie. FOR POSSIBLY LOW LATENCY OVE_ENCODE_TASK_PRIORITY_LEVEL2 */
+    if(encodeHandle->session == NULL) 
+    {
+        Log(L"\nOVEncodeCreateSession failed.\n");
+        return false;
+    }
+    /**************************************************************************/
+    /* Configure the encoding engine based upon the config file               */
+    /* specifications                                                         */
+    /**************************************************************************/
+    res = setEncodeConfig(encodeHandle->session,pConfig);
+    if (!res)
+    {
+        return false;
     }
     return true;
 }
@@ -667,15 +625,15 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
         {
             //uint32 srcSize = pConfig->width * pConfig->height * (mFormat / 8);
             convertFail = mCLConvert->convert(inData, (cl_mem)encodeHandle->inputSurfaces[0], mConfigTable["ProfileKernels"]==1) != 0;
-			/*status = clEnqueueCopyBuffer(encodeHandle->clCmdQueue[0], 
-				(cl_mem)encodeHandle->inputSurfaces[1],
-				(cl_mem)encodeHandle->inputSurfaces[0],
-				0, 0, hostPtrSize,
-				0, NULL, NULL);
-			status = clFlush(encodeHandle->clCmdQueue[0]);*/
+            /*status = clEnqueueCopyBuffer(encodeHandle->clCmdQueue[0], 
+                (cl_mem)encodeHandle->inputSurfaces[1],
+                (cl_mem)encodeHandle->inputSurfaces[0],
+                0, 0, hostPtrSize,
+                0, NULL, NULL);
+            status = clFlush(encodeHandle->clCmdQueue[0]);*/
         }
         else
-            RGBtoNV12 (inData, (uint8 *)mapPtr, mFormat/8, 1, mConfigTable["IsBGRA"], pConfig->width, pConfig->height, mAlignedSurfaceWidth);
+            RGBtoNV12 (inData, (uint8 *)mapPtr, mFormat/8, 1, mConfigTable["SwitchByteOrder"], pConfig->width, pConfig->height, mAlignedSurfaceWidth);
     }
     else if(
         (mFormat == 12 || mFormat == 16) && 
@@ -825,13 +783,7 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
             L"Might crash now.\n",
             buf_size, mCompressed_size);
 
-#if NO_BUGGY_APPS
-        prev = (uint8*)malloc(mCompressed_size); //FIXME Save currently encoded and send again in new Compress() call
-        finalBuffer = prev;
-        ret = false;
-#else
         mWarnedBuggy = true;
-#endif
     }
 
     for(uint32 i=0;i<numTaskDescriptionsReturned;i++)
@@ -849,6 +801,25 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
 
     if(eventRunVideoProgram)
         clReleaseEvent((cl_event) eventRunVideoProgram);
+
+    mHasIDR = false;
+    uint8 *start = (uint8 *)outData;
+    uint8 *end = start + mCompressed_size;
+    const static uint8 start_seq[] = { 0, 0, 1 };
+    start = std::search(start, end, start_seq, start_seq + 3);
+
+    while (start != end)
+    {
+        decltype(start) next = std::search(start + 1, end, start_seq, start_seq + 3);
+
+        //int i_ref_idc = (start[3] >> 5) & 3;
+        int i_type = start[3] & 0x1f;
+        if(i_type == NAL_SLICE_IDR)
+            mHasIDR = true;
+        //Log(L"nal type: %d idc: %d\n" ,i_type, i_ref_idc);
+        start = next;
+    }
+
     captureTimeStop(&mProfile, 3);
 fail:
     /**************************************************************************/
@@ -897,7 +868,7 @@ bool CodecInst::encodeClose(OVEncodeHandle *encodeHandle)
     }
 
     if(encodeHandle->session)
-    oveErr = OVEncodeDestroySession(encodeHandle->session);
+        oveErr = OVEncodeDestroySession(encodeHandle->session);
     if(!oveErr)
     {
         Log(L"Error releasing OVE Session\n");

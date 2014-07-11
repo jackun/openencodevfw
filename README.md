@@ -52,18 +52,18 @@ and `OPENENCODEVFW.DLL` in %WINDIR%\syswow64 or %WINDIR%\system32
 ## Some setting descriptions
 
  * `Fixed QP` basically keeps picture quality constant across all frames.
- * `CBR` keeps constant bitrate so picture quality gets worse if there is frequently fast motion in video and bitrate is too low or wastes harddrive space if frame could have been compressed more.
+ * `CBR` keeps constant bitrate so picture quality gets worse if there is frequently fast motion in video and bitrate is too low or wastes harddrive space if frame could have been compressed more. Seems to fluctuate too much though.
  * `VBR` uses variable bitrate, tries to keep in target bitrate but rises bitrate a little bit if needed or lowers if frame can be compressed more.
- 
- Probably not very accurate descriptions :P
- 
  * [CABAC](http://en.wikipedia.org/wiki/Context-adaptive_binary_arithmetic_coding) is more efficient and resource intensive encoding option.
  * `Search range` is motion vector range. Specifies how wide the codec looks for moved pixels so it can just say that these pixels moved to x,y and just save that. Higher (max 36?) is better and more resource intensive encoding option.
  * `Profiles` / `levels`: start from http://en.wikipedia.org/wiki/H.264/MPEG-4_AVC#Profiles . Colorspace is limited to Y'UV420.
- * `Send FPS` sets encoder framerate properties to video framerate. Should be more efficient, but not all framerates are supported by encoder. Untick to treat all videos as having 30 fps.
+
+Probably not very accurate descriptions :P
+
+ * `Send FPS` sets encoder framerate properties to video framerate, but not all framerates are supported by encoder. Untick to treat all videos as having 30 fps, but this may make encoding inefficient and increase bitrate more than necessary.
  * `Speedy Math` tries to speed up OpenCL floating point math by making it less accurate, but should be good enough.
  * `BGR(A) pixel format` : select if captured image is using BGR pixel format (recorded video is blue/orange) instead of RGB (like with Dxtory/D3D11).
 
 
-With newer AMD cards (hawaii+), seem to support B-frames and AVI kinda sucks with these ([see](http://guru.multimedia.cx/avi-and-b-frames/)). You may need to remux to MKV/MP4 for better audio/video sync.
+With newer AMD cards (hawaii+), seem to support B-frames, though VCE may not actually generate B-frames with OpenVideo, and AVI kinda sucks with these ([see](http://guru.multimedia.cx/avi-and-b-frames/)). You may need to remux to MKV/MP4 for better audio/video sync.
 (Also [maybe](https://trac.ffmpeg.org/ticket/1979#comment:7) `ffmpeg -fflags +genpts`)

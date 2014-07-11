@@ -7,9 +7,9 @@ CRITICAL_SECTION ove_CS;
 HMODULE hmoduleVFW = 0;
 
 CodecInst::CodecInst() : isVistaOrNewer(false), 
-	mCLConvert(0), mRaw(0), mUseCLConv(true), mUseCPU(false), mDialogUpdated(false), buffer2(0),
-	fps_den(0), fps_num(0), frame_total(0), mParser(0), mLog(0), prev(0), buffer(0), in(0), out(0),
-	clDeviceID(0), mCpuCtx(0), mCpuDev(0), mOveContext(0) {
+	mCLConvert(0), mRaw(0), mUseCLConv(true), mUseCPU(false), mDialogUpdated(false),
+	fps_den(0), fps_num(0), frame_total(0), mParser(0), mLog(0),
+	clDeviceID(0), mCpuCtx(0), mCpuDev(0), mOveContext(0), mMsgBox(false) {
 /*#ifndef OPENENCODE_RELEASE
 	if ( started == 0x1337){
 		char msg[128];
@@ -117,7 +117,7 @@ DWORD Close(CodecInst* pinst) {
 // some programs assume that the codec is not configurable if GetState
 // and SetState are not supported.
 DWORD CodecInst::GetState(LPVOID pv, DWORD dwSize){
-	Log(L"GetState\n");
+	LogMsg(false, L"GetState\n");
 	if ( pv == NULL ){
 		return 1;
 	} else if ( dwSize < 1 ){
@@ -163,15 +163,24 @@ DWORD CodecInst::GetInfo(ICINFO* icinfo, DWORD dwSize) {
 	return sizeof(ICINFO);
 }
 
-void CodecInst::Log(const wchar_t *psz_fmt, ...)
+void CodecInst::LogMsg(bool msgBox, const wchar_t *psz_fmt, ...)
 {
+	va_list arg;
+	va_start(arg, psz_fmt);
 	if(mLog)
 	{
-		va_list arg;
-		va_start(arg, psz_fmt);
 		mLog->Log_internal(psz_fmt, arg);
-		va_end(arg);
 	}
+
+	if(msgBox)
+	{
+		wchar_t msg[4096];
+		memset(msg, 0, sizeof(msg));
+		//FIXME fcker crashes, too small buffer, dafuq it is _s then??? murmur
+		_vsnwprintf_s(msg, sizeof(msg), _TRUNCATE, psz_fmt, arg);
+		MessageBox(NULL, msg, L"Warning", 0);
+	}
+	va_end(arg);
 }
 
 /** 
@@ -555,7 +564,7 @@ void ConvertRGB24toYV12_SSE2(const uint8 *src, uint8 *ydest, uint8 *udest, uint8
 void RGBtoNV12 (const uint8 * rgb,
 	uint8 * yuv,
 	unsigned rgbIncrement, //bpp in bytes
-	uint8 flip, uint8 isBGR,
+	uint8 flip, uint8 isRGB,
 	int srcFrameWidth, int srcFrameHeight, uint32 yuvPitch)
 {
 
@@ -582,7 +591,7 @@ void RGBtoNV12 (const uint8 * rgb,
 
 	planeSize = yuvPitch * srcFrameHeight;
 	halfWidth = yuvPitch >> 1;
-	isBGR = MIN(isBGR, 1);
+	int isBGR = 1 - MIN(isRGB, 1);
 
 	// get pointers to the data
 	Y = yuv;

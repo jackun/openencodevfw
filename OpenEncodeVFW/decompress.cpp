@@ -67,8 +67,8 @@ DWORD CodecInst::Decompress(ICDECOMPRESS* icinfo, DWORD dwSize) {
 	if ( started != 0x1337 ){
 		DecompressBegin(icinfo->lpbiInput,icinfo->lpbiOutput);
 	}
-	out = (uint8 *)icinfo->lpOutput;
-	in  = (uint8 *)icinfo->lpInput; 
+	//out = (uint8 *)icinfo->lpOutput;
+	//in  = (uint8 *)icinfo->lpInput; 
 	icinfo->lpbiOutput->biSizeImage = 0;//length;
 
 	mCompressed_size = icinfo->lpbiInput->biSizeImage;

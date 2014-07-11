@@ -3,6 +3,16 @@
 #include <CommCtrl.h>
 
 extern HMODULE hmoduleVFW;
+static bool firstInit = true;
+static HWND hwndToolTip = NULL;
+static TOOLINFO ti;
+
+#define SETTOOLTIP(ctrl,str)\
+	do{\
+		ti.lpszText = (LPWSTR)L ##str; \
+		ti.uId = (UINT_PTR)GetDlgItem(hwndDlg, ctrl);\
+		SendMessageW(hwndToolTip, TTM_ADDTOOL, 0, (LPARAM)&ti);\
+	}while(0)
 
 //FIXME Proper maximum, 100 Mbps with 4.1+ level, probably
 #define MAX_BITRATE 50000 //kbit/s
@@ -135,15 +145,16 @@ void CodecInst::prepareConfigMap(bool quickset)
 
 	//Custom app settings
 	mConfigTable["sendFPS"] = 0; //Send proper video fps to encoder. Not sending allows video conversion with weird framerates
-	mConfigTable["blend"] = 0; // Blend to frames, output at half framerate (ok, but how to? :D)(you may need to fix avi header)
-	mConfigTable["YV12AsNV12"] = 0;//YUV or YVU
+	mConfigTable["YV12AsNV12"] = 0;//YUV or YVU or UYV or...
 	mConfigTable["SpeedyMath"] = 1; //Enable some OpenCL optimizations
 	mConfigTable["ColorspaceLimit"] = 0; //Limit rgb between 16..239
 	mConfigTable["Log"] = 0;
+	mConfigTable["LogMsgBox"] = 0;
 	mConfigTable["IDRframes"] = 250; //encIDRPeriod?
 	mConfigTable["ProfileKernels"] = 0;
 	mConfigTable["UseDevice"] = 0;
-	mConfigTable["IsBGRA"] = 1; //BGR(A) or RGB(A)
+	mConfigTable["SwitchByteOrder"] = 0; //BGR(A) or RGB(A), MSDN says BMP uses BGR
+	mConfigTable["crop"] = 1;
 }
 
 bool CodecInst::readRegistry()
@@ -394,7 +405,7 @@ bool CodecInst::setEncodeConfig(ove_session session, OvConfigCtrl *pConfig)
 	res = OVEncodeSendConfig (session, numOfConfigBuffers, configBuffers);
 	if (!res)
 	{
-		Log(L"OVEncodeSendConfig returned error\n");
+		LogMsg(mMsgBox, L"OVEncodeSendConfig returned error\n");
 		return false;
 	}
 
@@ -666,7 +677,24 @@ do {\
 } while (0)
 
 static void DialogUpdate(HWND hwndDlg, CodecInst* pinst)
-{					  
+{
+	if(firstInit)
+	{
+		firstInit = false;
+		hwndToolTip = CreateWindowEx(NULL, TOOLTIPS_CLASS, NULL, WS_POPUP|TTS_NOPREFIX|TTS_ALWAYSTIP,
+			CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+			hwndDlg, NULL, hmoduleVFW, NULL);
+
+		
+		ZeroMemory(&ti, sizeof(ti));
+		ti.cbSize = sizeof(ti);
+		ti.uFlags = TTF_SUBCLASS|TTF_IDISHWND;
+		ti.hwnd = hwndDlg;
+
+		SendMessage(hwndToolTip, TTM_SETMAXTIPWIDTH, 0, 500);
+		SendMessage(hwndToolTip, TTM_SETDELAYTIME, TTDT_AUTOPOP, 8000);
+	}
+
 	wchar_t temp[1024];
 	if (SendMessage(GetDlgItem(hwndDlg, IDC_RC_MODE), CB_GETCOUNT, 0, 0) == 0)
 	{
@@ -766,6 +794,10 @@ static void DialogUpdate(HWND hwndDlg, CodecInst* pinst)
 	swprintf(temp, 1023, L"%d", pinst->mConfigTable["encSearchRangeY"]);
 	SetDlgItemText(hwndDlg, IDC_SEARCHRY, temp);
 
+	swprintf(temp, 1023, L"%d", pinst->mConfigTable["encGOPSize"]);
+	SetDlgItemText(hwndDlg, IDC_GOP, temp);
+	SETTOOLTIP(IDC_GOP, "Set GOP size. 0 for automatic.");
+
 	CheckDlgButton(hwndDlg, IDC_CABAC, pinst->mConfigTable["CABACEnable"]);
 	CheckDlgButton(hwndDlg, IDC_USE_OPENCL, pinst->mUseCLConv ? 1 : 0);
 	CheckDlgButton(hwndDlg, IDC_USE_OPENCL2, pinst->mUseCPU ? 1 : 0);
@@ -773,11 +805,12 @@ static void DialogUpdate(HWND hwndDlg, CodecInst* pinst)
 	CheckDlgButton(hwndDlg, IDC_USE_ME_AMD, pinst->mConfigTable["enableAMD"]);
 	CheckDlgButton(hwndDlg, IDC_SKIP_MV16, pinst->mConfigTable["encForce16x16skip"]);
 	CheckDlgButton(hwndDlg, IDC_FRAMERATE, pinst->mConfigTable["sendFPS"]);
-	CheckDlgButton(hwndDlg, IDC_BLEND, pinst->mConfigTable["blend"]);
 	CheckDlgButton(hwndDlg, IDC_YV12ASNV12, pinst->mConfigTable["YV12AsNV12"]);
 	CheckDlgButton(hwndDlg, IDC_SPEEDY_MATH, pinst->mConfigTable["SpeedyMath"]);
-	CheckDlgButton(hwndDlg, IDC_CS_BGRA, pinst->mConfigTable["IsBGRA"]);
+	SETTOOLTIP(IDC_SPEEDY_MATH, "Use less precise floating-point math.");
+	CheckDlgButton(hwndDlg, IDC_CS_RGBA, pinst->mConfigTable["SwitchByteOrder"]);
 	CheckDlgButton(hwndDlg, IDC_LOG, pinst->mConfigTable["Log"]);
+	CheckDlgButton(hwndDlg, IDC_CROPH, pinst->mConfigTable["crop"]);
 	swprintf(temp, 1023, L"%d", pinst->mConfigTable["IDRframes"]);
 	SetDlgItemText(hwndDlg, IDC_IDR, temp);
 
@@ -855,9 +888,6 @@ static BOOL CALLBACK ConfigureDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam,
 				case IDC_CABAC:
 					pinst->mConfigTable["CABACEnable"] = IsDlgButtonChecked(hwndDlg, IDC_CABAC);
 					break;
-				case IDC_BLEND:
-					pinst->mConfigTable["blend"] = IsDlgButtonChecked(hwndDlg, IDC_BLEND);
-					break;
 				case IDC_USE_OPENCL:
 					pinst->mUseCLConv = IsDlgButtonChecked(hwndDlg, IDC_USE_OPENCL) == 1;
 					break;
@@ -882,11 +912,17 @@ static BOOL CALLBACK ConfigureDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam,
 				case IDC_SPEEDY_MATH:
 					pinst->mConfigTable["SpeedyMath"] = IsDlgButtonChecked(hwndDlg, IDC_SPEEDY_MATH);
 					break;
-				case IDC_CS_BGRA:
-					pinst->mConfigTable["IsBGRA"] = IsDlgButtonChecked(hwndDlg, IDC_CS_BGRA);
+				case IDC_CS_RGBA:
+					pinst->mConfigTable["SwitchByteOrder"] = IsDlgButtonChecked(hwndDlg, IDC_CS_RGBA);
 					break;
 				case IDC_LOG:
 					pinst->mConfigTable["Log"] = IsDlgButtonChecked(hwndDlg, IDC_LOG);
+					break;
+				case IDC_CROPH:
+					pinst->mConfigTable["crop"] = IsDlgButtonChecked(hwndDlg, IDC_CROPH);
+					break;
+				case IDC_LOG2:
+					pinst->mConfigTable["LogMsgBox"] = IsDlgButtonChecked(hwndDlg, IDC_LOG2);
 					break;
 				case IDC_PROF_BASE:
 					//TODO fix radio buttons in group control, how do to do in plain win32?
@@ -934,6 +970,10 @@ static BOOL CALLBACK ConfigureDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam,
 					case IDC_IDR:
 						CHECKED_SET_MAX_INT(rate, hwndDlg, IDC_IDR, FALSE, 1, 0xFFFFFFFF);//TODO max
 						pinst->mConfigTable["IDRframes"] = rate;
+						break;
+					case IDC_GOP:
+						CHECKED_SET_MAX_INT(rate, hwndDlg, IDC_GOP, FALSE, 0, 0xFFFFFFFF);//TODO max
+						pinst->mConfigTable["encGOPSize"] = rate;
 						break;
 					case IDC_SEARCHRX:
 						CHECKED_SET_MAX_INT(rate, hwndDlg, IDC_SEARCHRX, FALSE, 0, 36);

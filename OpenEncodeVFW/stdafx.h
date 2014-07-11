@@ -15,6 +15,9 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <vector>
+#include <map>
+#include <algorithm>
 #include <fstream>
 #include <vfw.h>
 #include <malloc.h>

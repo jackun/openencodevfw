@@ -2,7 +2,6 @@
 // Microsoft Visual C++ generated include file.
 // Used by OpenEncodeVFW.rc
 //
-#define IDC_STATIC                      (-1)
 #define IDD_DIALOG1                     101
 #define IDR_OPENCL_KERNELS              103
 #define IDB_BITMAP1                     105
@@ -35,7 +34,7 @@
 #define IDC_BLEND                       1031
 #define IDC_YV12ASNV12                  1032
 #define IDC_SPEEDY_MATH                 1033
-#define IDC_CS_BGRA                     1034
+#define IDC_CS_RGBA                     1034
 #define IDC_LOG                         1035
 #define IDC_USE_OPENCL2                 1036
 #define IDC_IDR                         1037
@@ -43,6 +42,10 @@
 #define IDC_QS_SPEED                    1039
 #define IDC_QS_BALANCED                 1040
 #define IDC_QS_QUALITY                  1041
+#define IDC_LOG2                        1042
+#define IDC_GOP                         1043
+#define IDC_LOG3                        1044
+#define IDC_CROPH                       1044
 
 // Next default values for new objects
 // 

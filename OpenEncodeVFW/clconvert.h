@@ -52,7 +52,7 @@ public:
 
 	clConvert(cl_context ctx, cl_device_id dev, cl_command_queue cmdqueue[2], 
 			int width, int height, unsigned int _bpp_bytes, Logger *lg, OVprofile *prof,
-			bool opt = true, bool bgr = false):
+			bool opt = true, bool rgb = false):
 		g_context(ctx), deviceID(dev),
 		iWidth(width), oWidth(width), 
 		iHeight(height), oHeight(height), bpp_bytes(_bpp_bytes),
@@ -61,7 +61,7 @@ public:
 		g_program(NULL), mLog(lg), mProf(prof),
 		mOptimize(opt),
 		profSecs1(0), profSecs2(0), prof2ndPass(false),
-		hRaw(NULL), mBGR(bgr)
+		hRaw(NULL), mRGB(rgb)
 	{
 		localThreads_Max[0] = 1;
 		localThreads_Max[1] = 1;
@@ -125,18 +125,11 @@ private:
 	cl_device_id deviceID;// = 0;
 	Logger *mLog;
 	bool	mOptimize;
-	bool	mBGR;
+	bool	mRGB;
 
 	int setupCL();
 	int waitForEventAndRelease(cl_event *event);
 	void Cleanup_OpenCL();
-	bool runNV12ToRGBKernel(
-						size_t globalThreads[2],
-						size_t localThreads[2]);
-	bool runRGBToNV12Kernel(
-						cl_kernel kernel,
-						size_t globalThreads[2],
-						size_t localThreads[2], bool blend);
 
 	int setKernelArgs(cl_kernel kernel, cl_mem input, cl_mem output);
 	int setKernelOffset(cl_kernel kernel, int offset);

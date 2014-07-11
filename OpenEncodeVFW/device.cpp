@@ -1,6 +1,8 @@
 #include "stdafx.h"
 #include "OpenEncodeVFW.h"
 
+#define Log(...) LogMsg(false, __VA_ARGS__)
+
 /** 
 *******************************************************************************
 *  @fn     getDevice

@@ -1,7 +1,6 @@
 #ifndef _MAIN_HEADER
 #define _MAIN_HEADER
 
-#include <map>
 #include "OpenVideo\OVEncode.h"
 #include "OpenVideo\OVEncodeTypes.h"
 #include "cl\cl.h"
@@ -119,14 +118,10 @@ void RGBtoNV12 (const uint8 * rgb,
 class CodecInst {
 public:
 	Logger *mLog;
+	bool mMsgBox;
 	bool mWarnedBuggy;
 	FILE* mRaw;
 	int started;			//if the codec has been properly initalized yet
-	uint8 * buffer;
-	uint8 * prev;
-	const uint8 * in;
-	uint8 * out;
-	uint8 * buffer2; //Second buffer for blend
 	
 	unsigned int mLength;
 	unsigned int mWidth;
@@ -180,6 +175,7 @@ public:
 
 	//H264 ES parser
 	Parser *mParser;
+	bool mHasIDR;
 
 	CodecInst();
 	~CodecInst();
@@ -206,7 +202,7 @@ public:
 
 	BOOL QueryConfigure();
 
-	void Log(const wchar_t *psz_fmt, ...);
+	void LogMsg(bool msgBox, const wchar_t *psz_fmt, ...);
 
 	bool readRegistry();
 	bool saveRegistry();

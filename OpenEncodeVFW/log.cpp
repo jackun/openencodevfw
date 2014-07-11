@@ -24,17 +24,16 @@ Logger::~Logger()
 	if(mLog) fclose(mLog);
 }
 
-void Logger::Log_internal(const wchar_t *psz_fmt, va_list arg)
+void Logger::Log_internal(const wchar_t *psz_fmt, va_list args)
 {
 	if(!mLog) open();
 
 	if(mLog)
 	{
-		wchar_t msg[16000];
-		memset(msg, 0, sizeof(msg));
-		//FIXME fcker crashes, too small buffer, dafuq it is _s then??? murmur
-		_vsnwprintf_s(msg, 16000, psz_fmt, arg);
-		fwrite(msg, sizeof(wchar_t), wcslen(msg), mLog);
+		int bufsize = _vscwprintf(psz_fmt, args) + 1;
+		std::vector<wchar_t> msg(bufsize);
+		_vsnwprintf_s(&msg[0], bufsize, bufsize-1, psz_fmt, args);
+		fwrite(&msg[0], sizeof(wchar_t), bufsize - 1, mLog);
 		fflush(mLog);
 	}
 }

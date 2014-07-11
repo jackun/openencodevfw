@@ -7,7 +7,6 @@
 //
 // Generated from the TEXTINCLUDE 2 resource.
 //
-//#include "windows.h" //without MFC
 #include "afxres.h"
 
 /////////////////////////////////////////////////////////////////////////////
@@ -57,11 +56,11 @@ BEGIN
     EDITTEXT        IDC_SEARCHRY,132,85,30,12,ES_AUTOHSCROLL | ES_NUMBER
     CONTROL         "Treat YV12 as NV12",IDC_YV12ASNV12,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,222,144,78,10
     CONTROL         "Speedy math",IDC_SPEEDY_MATH,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,18,247,58,10
-    CONTROL         "BGR(A) pixel format",IDC_CS_BGRA,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,222,133,79,10
+    CONTROL         "Switch byte order",IDC_CS_RGBA,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,222,133,73,10
     CONTROL         "Log (saved to current working dir)",IDC_LOG,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,90,120,125,10
     CONTROL         "Run on CPU (slow, unsupported)",IDC_USE_OPENCL2,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,18,223,121,10
-    GROUPBOX        "Force keyframe",IDC_STATIC,6,162,72,30
-    EDITTEXT        IDC_IDR,12,174,60,12,ES_AUTOHSCROLL | ES_NUMBER
+    GROUPBOX        "Force key / GOP",IDC_STATIC,6,162,72,30
+    EDITTEXT        IDC_IDR,12,174,30,12,ES_AUTOHSCROLL | ES_NUMBER
     CONTROL         "Profile kernels (check logging too)",IDC_USE_OPENCL3,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,18,234,123,10
     GROUPBOX        "Quick set",IDC_STATIC,174,72,150,30
@@ -70,6 +69,9 @@ BEGIN
     PUSHBUTTON      "Quality",IDC_QS_QUALITY,276,84,42,14
     GROUPBOX        "OpenCL",IDC_STATIC,6,198,318,66
     GROUPBOX        "Misc",IDC_STATIC,84,108,240,84
+    CONTROL         "Show message box if fatal error",IDC_LOG2,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,90,156,118,10
+    EDITTEXT        IDC_GOP,48,174,24,12,ES_AUTOHSCROLL | ES_NUMBER
+    CONTROL         "Crop height",IDC_CROPH,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,90,168,53,10
 END
 
 
