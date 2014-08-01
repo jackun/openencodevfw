@@ -6,6 +6,8 @@ https://github.com/jackun/openencodevfw/archive/master.zip
 
 Extra settings are saved to registry under `HKCU\Software\OpenEncodeVFW`
 
+**You may need to install MSVC++ 2010 runtimes: [32bit](http://www.microsoft.com/en-us/download/details.aspx?id=8328), [64bit](http://www.microsoft.com/en-us/download/details.aspx?id=13523)**
+
 ## Compatible hardware
 
 AMD's GCN based cards and APUs.
@@ -45,6 +47,8 @@ If uninstaller fails its job, manually remove these registry keys:
 	HKLM\SYSTEM\CurrentControlSet\Control\MediaResources\icm\VIDC.H264
 	HKLM\Software\Microsoft\Windows NT\CurrentVersion\drivers.desc\OPENENCODEVFW.DLL
 	HKLM\Software\Microsoft\Windows NT\CurrentVersion\Drivers32\VIDC.H264
+	HKLM\Software\Wow6432Node\Microsoft\Windows NT\CurrentVersion\drivers.desc\OPENENCODEVFW.DLL
+	HKLM\Software\Wow6432Node\Microsoft\Windows NT\CurrentVersion\Drivers32\VIDC.H264
 	
 and `OPENENCODEVFW.DLL` in %WINDIR%\syswow64 or %WINDIR%\system32
 
@@ -60,9 +64,11 @@ and `OPENENCODEVFW.DLL` in %WINDIR%\syswow64 or %WINDIR%\system32
 
 Probably not very accurate descriptions :P
 
+Also:
+
  * `Send FPS` sets encoder framerate properties to video framerate, but not all framerates are supported by encoder. Untick to treat all videos as having 30 fps, but this may make encoding inefficient and increase bitrate more than necessary.
  * `Speedy Math` tries to speed up OpenCL floating point math by making it less accurate, but should be good enough.
- * `BGR(A) pixel format` : select if captured image is using BGR pixel format (recorded video is blue/orange) instead of RGB (like with Dxtory/D3D11).
+ * `Switch byte order` : for the rare case when input bitmap is RGB(A) instead of BGR(A).
 
 
 With newer AMD cards (hawaii+), seem to support B-frames, though VCE may not actually generate B-frames with OpenVideo, and AVI kinda sucks with these ([see](http://guru.multimedia.cx/avi-and-b-frames/)). You may need to remux to MKV/MP4 for better audio/video sync.
