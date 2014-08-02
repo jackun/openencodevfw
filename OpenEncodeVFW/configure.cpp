@@ -811,6 +811,7 @@ static void DialogUpdate(HWND hwndDlg, CodecInst* pinst)
 	CheckDlgButton(hwndDlg, IDC_CS_RGBA, pinst->mConfigTable["SwitchByteOrder"]);
 	CheckDlgButton(hwndDlg, IDC_LOG, pinst->mConfigTable["Log"]);
 	CheckDlgButton(hwndDlg, IDC_CROPH, pinst->mConfigTable["crop"]);
+	CheckDlgButton(hwndDlg, IDC_HDRINSERTION, pinst->mConfigTable["encHeaderInsertionSpacing"]);
 	swprintf(temp, 1023, L"%d", pinst->mConfigTable["IDRframes"]);
 	SetDlgItemText(hwndDlg, IDC_IDR, temp);
 
@@ -920,6 +921,9 @@ static BOOL CALLBACK ConfigureDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam,
 					break;
 				case IDC_CROPH:
 					pinst->mConfigTable["crop"] = IsDlgButtonChecked(hwndDlg, IDC_CROPH);
+					break;
+				case IDC_HDRINSERTION:
+					pinst->mConfigTable["encHeaderInsertionSpacing"] = IsDlgButtonChecked(hwndDlg, IDC_HDRINSERTION) == BST_CHECKED ? 1 : 0;
 					break;
 				case IDC_LOG2:
 					pinst->mConfigTable["LogMsgBox"] = IsDlgButtonChecked(hwndDlg, IDC_LOG2);

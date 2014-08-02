@@ -69,6 +69,7 @@ Also:
  * `Send FPS` sets encoder framerate properties to video framerate, but not all framerates are supported by encoder. Untick to treat all videos as having 30 fps, but this may make encoding inefficient and increase bitrate more than necessary.
  * `Speedy Math` tries to speed up OpenCL floating point math by making it less accurate, but should be good enough.
  * `Switch byte order` : for the rare case when input bitmap is RGB(A) instead of BGR(A).
+ * `Header insertion` : add header to every "picture", may make cutting/splitting video easier.
 
 
 With newer AMD cards (hawaii+), seem to support B-frames, though VCE may not actually generate B-frames with OpenVideo, and AVI kinda sucks with these ([see](http://guru.multimedia.cx/avi-and-b-frames/)). You may need to remux to MKV/MP4 for better audio/video sync.

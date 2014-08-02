@@ -115,7 +115,10 @@ DWORD CodecInst::CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
     int numH = ((mHeight + 15) / 16), numW = ((mWidth + 15) / 16);
     //mConfigTable["encCropRightOffset"] = (numW * 16 - mWidth) >> 1;
     if(mConfigTable["crop"])
+    {
         mConfigTable["encCropBottomOffset"] = (numH * 16 - mHeight) >> 1;
+        mConfigTable["encCropRightOffset"] = (numW * 16 - mWidth) >> 1;
+    }
     mConfigTable["encNumMBsPerSlice"] = numW * numH;
     mConfigTable["encVBVBufferSize"] = mConfigTable["encRateControlTargetBitRate"] >> 1; //half of bitrate
     

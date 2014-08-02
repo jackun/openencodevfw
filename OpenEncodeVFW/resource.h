@@ -46,6 +46,7 @@
 #define IDC_GOP                         1043
 #define IDC_LOG3                        1044
 #define IDC_CROPH                       1044
+#define IDC_HDRINSERTION                1045
 
 // Next default values for new objects
 // 
