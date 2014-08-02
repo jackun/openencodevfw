@@ -711,7 +711,7 @@ static void DialogUpdate(HWND hwndDlg, CodecInst* pinst)
 		DeviceMap::iterator it = pinst->mDevList.begin();
 		DeviceMap::iterator ite = pinst->mDevList.end();
 		for(; it!=ite; it++) {
-			swprintf_s(temp, L"%d. %s", (long)it._Ptr - (long)pinst->mDevList.begin()._Ptr, it->second.c_str());
+			swprintf_s(temp, L"%d. %s", std::distance(pinst->mDevList.begin(), it), it->second.c_str());
 			SendDlgItemMessageW(hwndDlg, IDC_DEVICE_CB, CB_ADDSTRING, 0, (LPARAM)temp);
 		}
 
