@@ -71,6 +71,12 @@ Also:
  * `Switch byte order` : for the rare case when input bitmap is RGB(A) instead of BGR(A).
  * `Header insertion` : add header to every "picture", may make cutting/splitting video easier.
 
+**Quickset** buttons for speed vs quality:
+
+ * `Speed` : encodes 1080p at 60+ fps (theoretical max 80+)
+ * `Balanced` : encodes 1080p at 40+ fps
+ * `Quality` : encodes 1080p at 30+ fps (can probably do 720p@60)
+
 
 With newer AMD cards (hawaii+), seem to support B-frames, though VCE may not actually generate B-frames with OpenVideo, and AVI kinda sucks with these ([see](http://guru.multimedia.cx/avi-and-b-frames/)). You may need to remux to MKV/MP4 for better audio/video sync.
 (Also [maybe](https://trac.ffmpeg.org/ticket/1979#comment:7) `ffmpeg -fflags +genpts`)
