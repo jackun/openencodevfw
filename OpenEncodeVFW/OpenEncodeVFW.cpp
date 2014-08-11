@@ -627,7 +627,7 @@ void RGBtoNV12 (const uint8 * rgb,
 		{
 			uint8 *lY;
 			if(!!flip)
-				lY = Y + yuvPitch * (srcFrameHeight - y);
+				lY = Y + yuvPitch * (srcFrameHeight - y) + 1 /* ?? */;
 			else
 				lY = Y + yuvPitch * y;//, src += padRGB
 			const uint8 *lsrc = rgb + (srcFrameWidth*(y)*rgbIncrement);
@@ -658,8 +658,8 @@ void RGBtoNV12 (const uint8 * rgb,
 		
 		for (x = 0; x < (srcFrameWidth>>1); x++)
 		{
-			yuvTo2(lUV, 2, 0);
-			lsrc += rgbIncrement*2;
+			lUV += 2;
+			lsrc += 2 * rgbIncrement;
 
 			// No need to saturate between 16 and 240
 			// Sample pixels from 2x2 box
