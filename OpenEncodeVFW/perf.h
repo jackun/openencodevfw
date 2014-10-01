@@ -104,7 +104,7 @@ jurisdiction and venue of these courts.
 *                             INCLUDE FILES                                    *
 *******************************************************************************/
 #include <windows.h>
-#include "OpenVideo\OVEncode.h"
+#include "OVEncodeDyn.h"
 #include "OvEncodeTypedef.h"
 #include <stdio.h>
 #include "cl\cl.h"

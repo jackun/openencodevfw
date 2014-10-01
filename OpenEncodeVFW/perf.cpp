@@ -100,6 +100,7 @@ jurisdiction and venue of these courts.
 
 #include "stdafx.h"
 #include "OpenEncodeVFW.h"
+//#define NOPROF
 
 /** 
  *******************************************************************************
@@ -133,6 +134,7 @@ void initProfileCnt(OVprofile *profileCnt)
  */
 void displayFps(Logger *mLog, OVprofile *profileCnt,cl_device_id clDeviceID )
 {
+#ifndef NOPROF
 	//static int32 dumped = 0; if(dumped) return; dumped = 1;
 	uint32 gpuFreq;
 	float32 means[MAX_TIMING];
@@ -172,6 +174,7 @@ void displayFps(Logger *mLog, OVprofile *profileCnt,cl_device_id clDeviceID )
 		mLog->Log(L"Memory write                  : %5.2f / %5.2f [FPS]\n", means[5], perfs[5]);
 		mLog->Log(L"Whole compression             : %5.2f / %5.2f [FPS]\n", means[4], perfs[4]);
 	}
+#endif
 }
 
 /** 
@@ -187,11 +190,13 @@ void displayFps(Logger *mLog, OVprofile *profileCnt,cl_device_id clDeviceID )
  */
 void captureTimeStop(OVprofile *profileCnt, int32 type)
 {
+#ifndef NOPROF
 	if(profileCnt->callCount[type]++ >= SKIP_TIMING) 
 	{ 
 		int64 time = myRdtsc() - profileCnt->sTime[type]; 
 		profileCnt->accSum[type] += time; 
 	}
+#endif
 }
 /** 
  *******************************************************************************
@@ -206,7 +211,9 @@ void captureTimeStop(OVprofile *profileCnt, int32 type)
  */
 void captureTimeStart(OVprofile *profileCnt, int32 type)
 {
+#ifndef NOPROF
 	profileCnt->sTime[type] = myRdtsc();
+#endif
 }
 
 /** 
@@ -224,10 +231,10 @@ cl_int getGpuFrequency(cl_device_id clDeviceID, uint32 *gpuFreq)
 {
 	cl_int status;
 	size_t size;
-	status = clGetDeviceInfo(clDeviceID,
-                CL_DEVICE_MAX_CLOCK_FREQUENCY,
-                sizeof(uint32),
-                gpuFreq, &size
-                );
+	status = f_clGetDeviceInfo(clDeviceID,
+				CL_DEVICE_MAX_CLOCK_FREQUENCY,
+				sizeof(uint32),
+				gpuFreq, &size
+				);
 	return(status);
 }
