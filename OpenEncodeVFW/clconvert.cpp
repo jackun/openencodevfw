@@ -728,7 +728,7 @@ int clConvert::convert(const uint8* srcPtr, cl_mem dstBuffer, bool profile)
 		//g_pinnedBuffer,
 		CL_TRUE,
 		//CL_FALSE,
-		CL_MAP_WRITE,
+		CL_MAP_WRITE_INVALIDATE_REGION,
 		0,
 		input_size,
 		0,
