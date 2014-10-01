@@ -1,9 +1,9 @@
 #ifndef _MAIN_HEADER
 #define _MAIN_HEADER
 
-#include "OpenVideo\OVEncode.h"
-#include "OpenVideo\OVEncodeTypes.h"
-#include "cl\cl.h"
+#include "OVEncodeDyn.h"
+#include "OVEncodeTypes.h"
+#include "CL\cl.h"
 #include "OvEncodeTypedef.h"
 #include "perf.h"
 #include "bitstream.h"
@@ -62,19 +62,19 @@ extern CRITICAL_SECTION ove_CS;
 
 typedef struct _OVConfigCtrl
 {
-    uint32                    height;
-    uint32                    width;
-    OVE_ENCODE_MODE                 encodeMode;
+	uint32                    height;
+	uint32                    width;
+	OVE_ENCODE_MODE                 encodeMode;
 
 	OVE_PROFILE_LEVEL               profileLevel; /**< Profile Level                       */
 
-    OVE_PICTURE_FORMAT              pictFormat;   /**< Profile format                      */
-    OVE_ENCODE_TASK_PRIORITY        priority;     /**< priority settings                   */
+	OVE_PICTURE_FORMAT              pictFormat;   /**< Profile format                      */
+	OVE_ENCODE_TASK_PRIORITY        priority;     /**< priority settings                   */
 
-    OVE_CONFIG_PICTURE_CONTROL      pictControl;  /**< Picture control                     */
-    OVE_CONFIG_RATE_CONTROL         rateControl;  /**< Rate contorl config                 */
-    OVE_CONFIG_MOTION_ESTIMATION    meControl;    /**< Motion Estimation settings          */
-    OVE_CONFIG_RDO                  rdoControl;   /**< Rate distorsion optimization control*/
+	OVE_CONFIG_PICTURE_CONTROL      pictControl;  /**< Picture control                     */
+	OVE_CONFIG_RATE_CONTROL         rateControl;  /**< Rate contorl config                 */
+	OVE_CONFIG_MOTION_ESTIMATION    meControl;    /**< Motion Estimation settings          */
+	OVE_CONFIG_RDO                  rdoControl;   /**< Rate distorsion optimization control*/
 } OvConfigCtrl, far * pConfig;
 
 /******************************************************************************/
@@ -84,7 +84,7 @@ typedef struct _OVConfigCtrl
 
 typedef struct OVDeviceHandle
 {
-    ovencode_device_info *deviceInfo; /**< Pointer to device info        */
+	ovencode_device_info *deviceInfo; /**< Pointer to device info        */
 	uint32                numDevices; /**< Number of devices available   */
 	cl_platform_id        platform;   /**< Platform                      */
 }OVDeviceHandle;
@@ -107,13 +107,13 @@ bool isH264iFrame(int8 *frame);
 void ConvertRGB24toYV12_SSE2(const uint8 *src, uint8 *ydest, uint8 *udest, uint8 *vdest, unsigned int w, unsigned int h);
 void ConvertRGB32toYV12_SSE2(const uint8 *src, uint8 *ydest, uint8 *udest, uint8 *vdest, unsigned int w, unsigned int h);
 void ff_rgb24toyv12_c(const uint8 *src, uint8 *ydst, uint8 *udst,
-                   uint8 *vdst, int width, int height, int lumStride,
-                   int chromStride, int srcStride, int32 *rgb2yuv);
+				   uint8 *vdst, int width, int height, int lumStride,
+				   int chromStride, int srcStride, int32 *rgb2yuv);
 void RGBtoNV12 (const uint8 * rgb,
-    uint8 * yuv,
-    unsigned rgbIncrement,
-    uint8 flip, uint8 isBGR,
-    int srcFrameWidth, int srcFrameHeight, uint32 alignedWidth);
+	uint8 * yuv,
+	unsigned rgbIncrement,
+	uint8 flip, uint8 isBGR,
+	int srcFrameWidth, int srcFrameHeight, uint32 alignedWidth);
 
 class CodecInst {
 public:
@@ -131,6 +131,8 @@ public:
 	uint32 mAlignedSurfaceWidth;
 	uint32 mAlignedSurfaceHeight;
 	int32  mHostPtrSize;
+	int32  mIDRFrames;
+	bool   mProfKernels;
 	
 	unsigned int mCompressed_size;
 	clConvert *mCLConvert;
@@ -165,10 +167,10 @@ public:
 
 	bool status;
 
-    /**************************************************************************/
-    /* Currently the OpenEncode support is only for vista and w7              */
-    /**************************************************************************/
-    bool isVistaOrNewer;
+	/**************************************************************************/
+	/* Currently the OpenEncode support is only for vista and w7              */
+	/**************************************************************************/
+	bool isVistaOrNewer;
 	OvConfigCtrl            mConfigCtrl;
 	map<string,int32>		mConfigTable;
 	DeviceMap mDevList;
@@ -237,7 +239,7 @@ public:
 	 *******************************************************************************
 	 */
 	bool readConfigFile(int8 *fileName, OvConfigCtrl *pConfig,
-                    std::map<std::string,int32>* pConfigTable);
+					std::map<std::string,int32>* pConfigTable);
 	/** 
 	 *******************************************************************************
 	 *  @fn     encodeSetParam
@@ -352,7 +354,7 @@ public:
 				   uint32 alignedSurfaceWidth, int8 *pBitstreamData);
 
 	bool nv12ToNV12Aligned(const uint8 *inData, uint32 uiHeight, uint32 uiWidth, 
-               uint32 alignedSurfaceWidth, int8 *pBitstreamData);
+			   uint32 alignedSurfaceWidth, int8 *pBitstreamData);
 	/** 
 	 *******************************************************************************
 	 *  @fn     encodeCreate

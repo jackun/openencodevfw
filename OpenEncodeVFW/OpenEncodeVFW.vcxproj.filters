@@ -13,6 +13,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
     </Filter>
+    <Filter Include="Header Files\CL">
+      <UniqueIdentifier>{785b9d67-5138-4b46-b920-f816bc3ae91f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="compress.cpp">
@@ -46,6 +49,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="log.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="oveDynload.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -94,6 +100,21 @@
     </ClInclude>
     <ClInclude Include="pOVEncode.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OVEncodeDyn.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OVEncodeTypes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CL\opencl.h">
+      <Filter>Header Files\CL</Filter>
+    </ClInclude>
+    <ClInclude Include="CL\cl.h">
+      <Filter>Header Files\CL</Filter>
+    </ClInclude>
+    <ClInclude Include="CL\cl_platform.h">
+      <Filter>Header Files\CL</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -48,7 +48,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD r, LPVOID) {
 }
 
 CodecInst* Open(ICOPEN* icinfo) {
-	if ((icinfo && icinfo->fccType != ICTYPE_VIDEO))
+	if ((icinfo && icinfo->fccType != ICTYPE_VIDEO) || !initOVE())
 		return NULL;
 
 	CodecInst* pinst = NULL;
@@ -106,6 +106,7 @@ CodecInst::~CodecInst(){
 
 //Something weird goes on with Dxtory
 DWORD Close(CodecInst* pinst) {
+	deinitOVE();
 	try {
 		if ( pinst && !IsBadWritePtr(pinst,sizeof(CodecInst)) ){
 			delete pinst;

@@ -167,12 +167,12 @@ bool CodecInst::gpuCheck(cl_platform_id platform,cl_device_type* dType)
 		0
 	};
 
-	cl_context context = clCreateContextFromType(cps,
+	cl_context context = f_clCreateContextFromType(cps,
 												(*dType),
 												NULL,
 												NULL,
 												&err);
-	clReleaseContext(context);
+	f_clReleaseContext(context);
 
 	if(err == CL_DEVICE_NOT_FOUND)
 	{
@@ -196,7 +196,7 @@ bool CodecInst::gpuCheck(cl_platform_id platform,cl_device_type* dType)
 bool CodecInst::getPlatform(cl_platform_id &platform)
 {
     cl_uint numPlatforms;
-	cl_int err = clGetPlatformIDs(0, NULL, &numPlatforms);
+	cl_int err = f_clGetPlatformIDs(0, NULL, &numPlatforms);
     if (CL_SUCCESS != err)
 	{
         Log(L"clGetPlatformIDs() failed %d\n", err);
@@ -208,7 +208,7 @@ bool CodecInst::getPlatform(cl_platform_id &platform)
     if (0 < numPlatforms) 
 	{
         cl_platform_id* platforms = new cl_platform_id[numPlatforms];
-        err = clGetPlatformIDs(numPlatforms, platforms, NULL);
+        err = f_clGetPlatformIDs(numPlatforms, platforms, NULL);
         if (CL_SUCCESS != err) 
 		{
             Log(L"clGetPlatformIDs() failed %d\n", err);
@@ -221,7 +221,7 @@ bool CodecInst::getPlatform(cl_platform_id &platform)
         for (uint32 i = 0; i < numPlatforms; ++i) 
         {
             int8 pbuf[100];
-            err = clGetPlatformInfo(platforms[i],
+            err = f_clGetPlatformInfo(platforms[i],
                                     CL_PLATFORM_VENDOR,
                                     sizeof(pbuf),
                                     pbuf,
@@ -267,12 +267,15 @@ DeviceMap CodecInst::getDeviceList()
 
 			// print device name
 			size_t valueSize;
-			clGetDeviceInfo(clDevId, CL_DEVICE_NAME, 0, NULL, &valueSize);
+			f_clGetDeviceInfo(clDevId, CL_DEVICE_NAME, 0, NULL, &valueSize);
 			char* value = (char*) malloc(valueSize);
-			clGetDeviceInfo(clDevId, CL_DEVICE_NAME, valueSize, value, NULL);
-			cl_int lendian;
-			clGetDeviceInfo(clDevId, CL_DEVICE_ENDIAN_LITTLE, sizeof(lendian), &lendian, NULL);
-			swprintf(tmp, 1023, L"%S (%S)", value, lendian == CL_TRUE ? "LE" : "BE");
+			f_clGetDeviceInfo(clDevId, CL_DEVICE_NAME, valueSize, value, NULL);
+			cl_int iVal;
+			//f_clGetDeviceInfo(clDevId, CL_DEVICE_ENDIAN_LITTLE, sizeof(iVal), &iVal, NULL);
+			f_clGetDeviceInfo(clDevId, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(iVal), &iVal, NULL);
+			
+			//swprintf(tmp, 1023, L"%S (%S)", value, iVal == CL_TRUE ? "LE" : "BE");
+			swprintf(tmp, 1023, L"%S (%d CU)", value, iVal);
 			wstring wstr = tmp;
 			devs.insert(pair<cl_device_id, wstring>(clDevId, wstr));
 			free(value);
@@ -294,7 +297,7 @@ bool CodecInst::createCPUContext(cl_platform_id platform)
 		0
 	};
 
-	mCpuCtx = clCreateContextFromType(cps,
+	mCpuCtx = f_clCreateContextFromType(cps,
 				CL_DEVICE_TYPE_CPU,
 				NULL,
 				NULL,
@@ -306,19 +309,19 @@ bool CodecInst::createCPUContext(cl_platform_id platform)
 	}
 
 	cl_uint count = 1;
-	err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 1, &mCpuDev, &count);
+	err = f_clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 1, &mCpuDev, &count);
 	if(err != CL_SUCCESS || count == 0){
 		Log(L"Could not get CPU device id. Error: %d.\n", err);
 		return false;
 	}
 
-	mCpuCmdQueue[0] = clCreateCommandQueue(mCpuCtx, mCpuDev, 0, &err);
+	mCpuCmdQueue[0] = f_clCreateCommandQueue(mCpuCtx, mCpuDev, 0, &err);
 	if(err != CL_SUCCESS) {
 		Log(L"\nCreate command queue #0 failed! Error : %d\n", err);
 		return false;
 	}
 	
-	mCpuCmdQueue[1] = clCreateCommandQueue(mCpuCtx, mCpuDev, 0, &err);
+	mCpuCmdQueue[1] = f_clCreateCommandQueue(mCpuCtx, mCpuDev, 0, &err);
 	if(err != CL_SUCCESS) {
 		Log(L"\nCreate command queue #1 failed! Error : %d\n", err);
 		return false;

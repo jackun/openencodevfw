@@ -3,11 +3,9 @@
 
 #include <string>
 #include <map>
-#include <OpenVideo\OVEncode.h>
-#include <OpenVideo\OVEncodeTypes.h>
-#include <cl\cl.h>
-#include <CL/cl_gl.h>
-#include <CL/cl_ext.h>
+#include "OVEncodeDyn.h"
+#include "OVEncodeTypes.h"
+#include <cl/cl.h>
 #include "OvEncodeTypedef.h"
 #include "log.h"
 #include "perf.h"
