@@ -6,7 +6,7 @@ https://github.com/jackun/openencodevfw/archive/master.zip
 
 Extra settings are saved to registry under `HKCU\Software\OpenEncodeVFW`
 
-**You may need to install MSVC++ 2010 runtimes: [32bit](http://www.microsoft.com/en-us/download/details.aspx?id=8328), [64bit](http://www.microsoft.com/en-us/download/details.aspx?id=13523)**
+**You may need to install [MSVC++ 2013 runtimes](http://www.microsoft.com/en-us/download/details.aspx?id=40784).**
 
 ## Compatible hardware
 
