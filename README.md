@@ -70,7 +70,7 @@ Also:
  * `Send FPS` sets encoder framerate properties to video framerate, but not all framerates are supported by encoder. Untick to treat all videos as having 30 fps, but this may make encoding inefficient and increase bitrate more than necessary.
  * `Speedy Math` tries to speed up OpenCL floating point math by making it less accurate, but should be good enough.
  * `Switch byte order` : for the rare case when input bitmap is RGB(A) instead of BGR(A).
- * `Header insertion` : add header to every "picture", may make cutting/splitting video easier.
+ * `Header insertion` : adds SPS/PPS to every frame, may make cutting/splitting video easier. More of a 'debug' feature.
 
 **Quickset** buttons for speed vs quality:
 
