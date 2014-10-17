@@ -9,6 +9,8 @@ Extra settings are saved to registry under `HKCU\Software\OpenEncodeVFW`
 **You may need to install [MSVC++ 2013 runtimes](http://www.microsoft.com/en-us/download/details.aspx?id=40784).**
 Last [MSVC++2010 commit](https://github.com/jackun/openencodevfw/tree/d6c7c53b61af9447b30d6d6d86be8725801d0fb7).
 
+**NOTE: You need to install x86 version for 32bit codec even if your Windows is 64 bit.**
+
 ## Compatible hardware
 
 AMD's GCN based cards and APUs.
