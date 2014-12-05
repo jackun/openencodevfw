@@ -6,6 +6,14 @@ using namespace std;
 CRITICAL_SECTION ove_CS;
 HMODULE hmoduleVFW = 0;
 
+extern "C" void WINAPI Configure(HWND hwnd, HINSTANCE hinst, LPTSTR lpCmdLine, int nCmdShow)
+{
+	if (!initOVE()) return;
+	CodecInst codec;
+	codec.Configure(GetDesktopWindow());
+	deinitOVE();
+}
+
 CodecInst::CodecInst() : isVistaOrNewer(false), 
 	mCLConvert(0), mRaw(0), mUseCLConv(true), mUseCPU(false), mDialogUpdated(false),
 	fps_den(0), fps_num(0), frame_total(0), mParser(0), mLog(0),

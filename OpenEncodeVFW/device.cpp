@@ -264,9 +264,14 @@ DeviceMap CodecInst::getDeviceList()
 		{
 			uint32 deviceId = hDev.deviceInfo[i].device_id;
 			cl_device_id clDevId = reinterpret_cast<cl_device_id>(deviceId);
+#ifdef _M_X64
+			// May ${DEITY} have mercy on us all.
+			intptr_t ptr = intptr_t((intptr_t*)&clDevId);
+			clDevId = (cl_device_id)((intptr_t)clDevId | (ptr & 0xFFFFFFFF00000000));
+#endif
 
 			// print device name
-			size_t valueSize;
+			size_t valueSize = 0;
 			f_clGetDeviceInfo(clDevId, CL_DEVICE_NAME, 0, NULL, &valueSize);
 			char* value = (char*) malloc(valueSize);
 			f_clGetDeviceInfo(clDevId, CL_DEVICE_NAME, valueSize, value, NULL);
