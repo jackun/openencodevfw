@@ -344,7 +344,7 @@ __kernel void BGRAtoNV12_UV(const __global uchar4 *input,
     output[uv_offset + 1] = UV.y;
 }
 
-// Convert RGB format to NV12. Colors seem a little off (oversaturated).
+// Convert RGB format to NV12.
 __kernel void RGBtoNV12_Y(__global uchar *input,
                         __global uchar *output,
                         int alignedWidth,
@@ -357,14 +357,8 @@ __kernel void RGBtoNV12_Y(__global uchar *input,
 
     //Unaligned read and probably slooooow
     uchar3 rgb = vload3(id.x + width * id.y, input);
-
-#if defined(BT601_FULL) || defined(BT709_FULL)
-    float range = 0.f;
-#else
-    float range = 16.f;
-#endif
-
-    uchar Y = convert_uchar_sat_rte((0.257f * rgb.x) + (0.504f * rgb.y) + (0.098f * rgb.z) + range);
+    //BT.709
+    uchar Y = convert_uchar_sat_rte((0.2126f * rgb.x) + (0.7152f * rgb.y) + (0.0722f * rgb.z));
 
 #ifdef FLIP
 #ifdef USE_STAGGERED
@@ -417,15 +411,19 @@ __kernel void RGBtoNV12_UV(__global uchar *input,
     uchar3 rgb11 = vload3(src + width + 1, input);
 
     //convert_float seemed to be slower on CPU (Core2)
-    float3 RGB00 = convert_float3(rgb00);
-    float3 RGB01 = convert_float3(rgb01);
-    float3 RGB10 = convert_float3(rgb10);
-    float3 RGB11 = convert_float3(rgb11);
+    // BT.709
+    float2 UV00 =  (float2)((-0.09991f * rgb00.x) - (0.33609f * rgb00.y) + (0.436f * rgb00.z) + 128.f,
+                             (0.615f * rgb00.x) - (0.55861f * rgb00.y) - (0.05639f * rgb00.z) + 128.f);
 
-    float2 UV00 = toUV(RGB00);
-    float2 UV01 = toUV(RGB01);
-    float2 UV10 = toUV(RGB10);
-    float2 UV11 = toUV(RGB11);
+    float2 UV01 =  (float2)((-0.09991f * rgb01.x) - (0.33609f * rgb01.y) + (0.436f * rgb01.z) + 128.f,
+                             (0.615f * rgb01.x) - (0.55861f * rgb01.y) - (0.05639f * rgb01.z) + 128.f);
+
+    float2 UV10 =  (float2)((-0.09991f * rgb10.x) - (0.33609f * rgb10.y) + (0.436f * rgb10.z) + 128.f,
+                             (0.615f * rgb10.x) - (0.55861f * rgb10.y) - (0.05639f * rgb10.z) + 128.f);
+
+    float2 UV11 =  (float2)((-0.09991f * rgb11.x) - (0.33609f * rgb11.y) + (0.436f * rgb11.z) + 128.f,
+                             (0.615f * rgb11.x) - (0.55861f * rgb11.y) - (0.05639f * rgb11.z) + 128.f);
+
     float2 UV =  (2 + UV00 + UV01 + UV10 + UV11) / 4;
 
     output[uv_offset]     = UV.x;//convert_uchar_rte(UV.x);
@@ -444,14 +442,8 @@ __kernel void BGRtoNV12_Y(__global uchar *input,
 
     //Unaligned read and probably slooooow
     uchar3 rgb = vload3(id.x + width * id.y, input);
-
-#if defined(BT601_FULL) || defined(BT709_FULL)
-    float range = 0.f;
-#else
-    float range = 16.f;
-#endif
-
-    float Y = (0.257f * rgb.z) + (0.504f * rgb.y) + (0.098f * rgb.x) + range;
+    //BT.709
+    float Y = (0.2126f * rgb.z) + (0.7152f * rgb.y) + (0.0722f * rgb.x);
 
 #ifdef FLIP
 #ifdef USE_STAGGERED
@@ -501,17 +493,18 @@ __kernel void BGRtoNV12_UV(__global uchar *input,
     uchar3 bgr10 = vload3(src + width, input);
     uchar3 bgr11 = vload3(src + width + 1, input);
 
-    float2 UV00 =  (float2)(-(0.148f * bgr00.z) - (0.291f * bgr00.y) + (0.439f * bgr00.x) + 128.f,
-                             (0.439f * bgr00.z) - (0.368f * bgr00.y) - (0.071f * bgr00.x) + 128.f);
+    // BT.709
+    float2 UV00 =  (float2)((-0.09991f * bgr00.z) - (0.33609f * bgr00.y) + (0.436f * bgr00.x) + 128.f,
+                             (0.615f * bgr00.z) - (0.55861f * bgr00.y) - (0.05639f * bgr00.x) + 128.f);
 
-    float2 UV01 =  (float2)(-(0.148f * bgr01.z) - (0.291f * bgr01.y) + (0.439f * bgr01.x) + 128.f,
-                             (0.439f * bgr01.z) - (0.368f * bgr01.y) - (0.071f * bgr01.x) + 128.f);
+    float2 UV01 =  (float2)((-0.09991f * bgr01.z) - (0.33609f * bgr01.y) + (0.436f * bgr01.x) + 128.f,
+                             (0.615f * bgr01.z) - (0.55861f * bgr01.y) - (0.05639f * bgr01.x) + 128.f);
 
-    float2 UV10 =  (float2)(-(0.148f * bgr10.z) - (0.291f * bgr10.y) + (0.439f * bgr10.x) + 128.f,
-                             (0.439f * bgr10.z) - (0.368f * bgr10.y) - (0.071f * bgr10.x) + 128.f);
+    float2 UV10 =  (float2)((-0.09991f * bgr10.z) - (0.33609f * bgr10.y) + (0.436f * bgr10.x) + 128.f,
+                             (0.615f * bgr10.z) - (0.55861f * bgr10.y) - (0.05639f * bgr10.x) + 128.f);
 
-    float2 UV11 =  (float2)(-(0.148f * bgr11.z) - (0.291f * bgr11.y) + (0.439f * bgr11.x) + 128.f,
-                             (0.439f * bgr11.z) - (0.368f * bgr11.y) - (0.071f * bgr11.x) + 128.f);
+    float2 UV11 =  (float2)((-0.09991f * bgr11.z) - (0.33609f * bgr11.y) + (0.436f * bgr11.x) + 128.f,
+                             (0.615f * bgr11.z) - (0.55861f * bgr11.y) - (0.05639f * bgr11.x) + 128.f);
 
     float2 UV =  (2 + UV00 + UV01 + UV10 + UV11) / 4;
 
