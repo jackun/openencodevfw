@@ -443,7 +443,7 @@ __kernel void BGRtoNV12_Y(__global uchar *input,
     //Unaligned read and probably slooooow
     uchar3 rgb = vload3(id.x + width * id.y, input);
     //BT.709
-    float Y = (0.2126f * rgb.z) + (0.7152f * rgb.y) + (0.0722f * rgb.x);
+    uchar Y = convert_uchar_sat_rte((0.2126f * rgb.z) + (0.7152f * rgb.y) + (0.0722f * rgb.x));
 
 #ifdef FLIP
 #ifdef USE_STAGGERED

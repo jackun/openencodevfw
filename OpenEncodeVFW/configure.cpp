@@ -790,10 +790,10 @@ static void DialogUpdate(HWND hwndDlg, CodecInst* pinst)
 
 	if (SendMessage(GetDlgItem(hwndDlg, IDC_COLORMATRIX), CB_GETCOUNT, 0, 0) == 0)
 	{
-		SendDlgItemMessage(hwndDlg, IDC_COLORMATRIX, CB_ADDSTRING, 0, (LPARAM)L"BT.709 full range");
+		SendDlgItemMessage(hwndDlg, IDC_COLORMATRIX, CB_ADDSTRING, 0, (LPARAM)L"BT.601 limited range");
 		SendDlgItemMessage(hwndDlg, IDC_COLORMATRIX, CB_ADDSTRING, 0, (LPARAM)L"BT.601 full range");
 		SendDlgItemMessage(hwndDlg, IDC_COLORMATRIX, CB_ADDSTRING, 0, (LPARAM)L"BT.709 limited (actually full, placeholder) range");
-		SendDlgItemMessage(hwndDlg, IDC_COLORMATRIX, CB_ADDSTRING, 0, (LPARAM)L"BT.601 limited range");
+		SendDlgItemMessage(hwndDlg, IDC_COLORMATRIX, CB_ADDSTRING, 0, (LPARAM)L"BT.709 full range");
 		uint32 matrix = pinst->mConfigTable["colormatrix"];
 		if (matrix >= COLORMATRIX_COUNT)
 			matrix = BT709_FULL;
