@@ -9,6 +9,7 @@
 #include "OvEncodeTypedef.h"
 #include "log.h"
 #include "perf.h"
+#include "colorspace.h"
 
 #define SUCCESS 0
 #define FAILURE 1
@@ -88,7 +89,7 @@ public:
 
 	int decodeInit();
 	int encodeInit(bool staggered, cl_mem dstBuffer);
-	int createKernels();
+	int createKernels(COLORMATRIX matrix);
 
 private:
 	//cl_platform_id		platform; //OVEncode CL platform ?

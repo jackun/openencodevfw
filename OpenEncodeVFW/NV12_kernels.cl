@@ -7,9 +7,7 @@
 
 #define UpperLimit	235.0f/255.0f
 
-//!!! BT601/BT709 Y coefficients seem to give output value in range of 0..255, 3rd coeff. give 16..235 (when adding 16.f)
-// But UV formulae seem to need +128.f too
-#ifdef BT601
+#ifdef BT601_FULL
 
 #define Ycoeff ((float4)(0.299f, 0.587f, 0.114f, 0.f))
 #define Ucoeff ((float4)(-0.14713f, -0.28886f, 0.436f, 0.f))
@@ -21,7 +19,7 @@
 #define VcoeffB ((float4)(-0.10001f, -0.51499, 0.615f, 0.f))
 
 #else
-#ifdef BT709
+#ifdef BT709_FULL
 
 #define Ycoeff ((float4)(0.2126f, 0.7152f, 0.0722f, 0.f))
 #define Ucoeff ((float4)(-0.09991f, -0.33609f, 0.436f, 0.f))
@@ -34,8 +32,22 @@
 
 #else
 
+#ifdef BT709_LIMITED
+
+// FULL coefficients!
+#define Ycoeff ((float4)(0.2126f, 0.7152f, 0.0722f, 0.f))
+#define Ucoeff ((float4)(-0.09991f, -0.33609f, 0.436f, 0.f))
+#define Vcoeff ((float4)(0.615f, -0.55861f, -0.05639f, 0.f))
+
+//BGR
+#define YcoeffB ((float4)(0.0722f, 0.7152f, 0.2126f, 0.f))
+#define UcoeffB ((float4)(0.436f, -0.33609f, -0.09991f, 0.f))
+#define VcoeffB ((float4)(-0.05639f, -0.55861f, 0.615f, 0.f))
+
+#else //BT601_LIMITED
+
 //http://www.mplayerhq.hu/DOCS/tech/colorspaces.txt
-//Looks like Rec. 601 in 16..235 range
+//Looks like Rec. 601 limited range
 #define Ycoeff ((float4)(0.257f, 0.504f, 0.098f, 0.f))
 #define Ucoeff ((float4)(-0.148f, -0.291f, 0.439f, 0.f))
 #define Vcoeff ((float4)(0.439f, -0.368f, -0.071f, 0.f))
@@ -44,8 +56,9 @@
 #define UcoeffB ((float4)(0.439f, -0.291f, -0.148f, 0))
 #define VcoeffB ((float4)(-0.071f, -0.368f, 0.439f, 0))
 
-#endif //BT709
-#endif //BT601
+#endif //BT709_LIMITED
+#endif //BT709_FULL
+#endif //BT601_FULL
 
 float3 RGBtoYUV(uchar R, uchar G, uchar B)
 {
@@ -247,7 +260,11 @@ __kernel void BGRAtoNV12_Y(const __global uchar4 *input,
     //uchar4 bgra = input[id.x + width * id.y];
     //float Y = (0.257f * bgra.z) + (0.504f * bgra.y) + (0.098f * bgra.x) + 16.f;
     float4 bgra = convert_float4(input[id.x + width * id.y]);
+#if defined(BT601_FULL) || defined(BT709_FULL)
+    uchar Y = convert_uchar_sat_rte(dot(YcoeffB, bgra));
+#else
     uchar Y = convert_uchar_sat_rte(dot(YcoeffB, bgra) + 16.f);
+#endif
 
     //should use convert_uchar_sat_rte but that seems to slow shit down
 #ifdef FLIP

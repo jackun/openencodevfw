@@ -202,7 +202,7 @@ int clConvert::setupCL()
 
 
 extern HMODULE hmoduleVFW;
-int clConvert::createKernels()
+int clConvert::createKernels(COLORMATRIX matrix)
 {
 	cl_int status;
 	// create a CL program using the kernel source, load it from resource
@@ -228,6 +228,25 @@ int clConvert::createKernels()
 	std::string flagsStr(""); //"-save-temps"
 	if (mOptimize)
 		flagsStr.append("-cl-single-precision-constant -cl-mad-enable -cl-fast-relaxed-math -cl-unsafe-math-optimizations ");
+
+	switch (matrix)
+	{
+	case BT709_FULL:
+		flagsStr.append("-DBT709_FULL ");
+		break;
+	case BT601_FULL:
+		flagsStr.append("-DBT601_FULL ");
+		break;
+	case BT709_LIMITED:
+		flagsStr.append("-DBT709_LIMITED ");
+		break;
+	/*case BT601_LIMITED:
+		flagsStr.append("-DBT601_LIMITED ");
+		break;*/
+	default:
+		flagsStr.append("-DBT601_LIMITED ");
+		break;
+	}
 
 	if (flagsStr.size() != 0)
 		mLog->Log(L"Build Options are : %S\n", flagsStr.c_str());

@@ -32,6 +32,7 @@
 #define IDC_SEARCHRX                    1029
 #define IDC_SEARCHRY                    1030
 #define IDC_BLEND                       1031
+#define IDC_COLORMATRIX                 1031
 #define IDC_YV12ASNV12                  1032
 #define IDC_SPEEDY_MATH                 1033
 #define IDC_CS_RGBA                     1034

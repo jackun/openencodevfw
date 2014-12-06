@@ -116,6 +116,9 @@
     <ClInclude Include="CL\cl_platform.h">
       <Filter>Header Files\CL</Filter>
     </ClInclude>
+    <ClInclude Include="colorspace.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="OpenEncodeVFW.rc">

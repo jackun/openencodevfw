@@ -229,6 +229,7 @@ copy $(TargetPath) ..\OpenEncode64</Command>
     <ClInclude Include="CL\cl.h" />
     <ClInclude Include="CL\cl_platform.h" />
     <ClInclude Include="CL\opencl.h" />
+    <ClInclude Include="colorspace.h" />
     <ClInclude Include="log.h" />
     <ClInclude Include="OpenEncodeVFW.h" />
     <ClInclude Include="OVEncodeDyn.h" />

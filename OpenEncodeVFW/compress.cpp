@@ -228,7 +228,8 @@ DWORD CodecInst::CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
 			mConfigTable["SpeedyMath"]==1,
 			mConfigTable["SwitchByteOrder"]==1);
 
-		if(!(mCLConvert->createKernels() == SUCCESS && 
+		COLORMATRIX matrix = static_cast<COLORMATRIX>(mConfigTable["colormatrix"]);
+		if(!(mCLConvert->createKernels(matrix) == SUCCESS && 
 			mCLConvert->encodeInit(false, (cl_mem)mEncodeHandle.inputSurfaces[0]) == SUCCESS))
 		{
 			LogMsg(mMsgBox, L"Failed to initialize OpenCL colorspace conversion!\n");
