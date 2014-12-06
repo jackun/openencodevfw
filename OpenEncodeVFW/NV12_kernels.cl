@@ -125,7 +125,13 @@ __kernel void BGRAtoNV12Combined(__global uchar4 *input,
     float4 rgba = convert_float4(input[id.x + width * id.y]);
 #endif
 
-    float Y = dot(YcoeffB, rgba) + 16.f;
+#if defined(BT601_FULL) || defined(BT709_FULL)
+    float range = 0.f;
+#else
+    float range = 16.f;
+#endif
+
+    float Y = dot(YcoeffB, rgba) + range;
     float U = dot(UcoeffB, rgba) + 128.f; //Probably should sample 2x2
     float V = dot(VcoeffB, rgba) + 128.f;
 
@@ -147,8 +153,14 @@ __kernel void RGBAtoNV12_Y(__global uchar4 *input,
 
     float4 rgba = convert_float4(input[id.x + width * id.y]);
 
+#if defined(BT601_FULL) || defined(BT709_FULL)
+    float range = 0.f;
+#else
+    float range = 16.f;
+#endif
+
 #ifdef USE_FLOAT4
-    float Y = dot(rgba, Ycoeff) + 16.f;
+    float Y = dot(rgba, Ycoeff) + range;
 #else
     float Y = (0.257f * rgba.x) + (0.504f * rgba.y) + (0.098f * rgba.z) + 16.f;
 #endif
@@ -260,6 +272,7 @@ __kernel void BGRAtoNV12_Y(const __global uchar4 *input,
     //uchar4 bgra = input[id.x + width * id.y];
     //float Y = (0.257f * bgra.z) + (0.504f * bgra.y) + (0.098f * bgra.x) + 16.f;
     float4 bgra = convert_float4(input[id.x + width * id.y]);
+
 #if defined(BT601_FULL) || defined(BT709_FULL)
     uchar Y = convert_uchar_sat_rte(dot(YcoeffB, bgra));
 #else
@@ -345,7 +358,13 @@ __kernel void RGBtoNV12_Y(__global uchar *input,
     //Unaligned read and probably slooooow
     uchar3 rgb = vload3(id.x + width * id.y, input);
 
-    uchar Y = convert_uchar_sat_rte((0.257f * rgb.x) + (0.504f * rgb.y) + (0.098f * rgb.z) + 16.f);
+#if defined(BT601_FULL) || defined(BT709_FULL)
+    float range = 0.f;
+#else
+    float range = 16.f;
+#endif
+
+    uchar Y = convert_uchar_sat_rte((0.257f * rgb.x) + (0.504f * rgb.y) + (0.098f * rgb.z) + range);
 
 #ifdef FLIP
 #ifdef USE_STAGGERED
@@ -426,7 +445,13 @@ __kernel void BGRtoNV12_Y(__global uchar *input,
     //Unaligned read and probably slooooow
     uchar3 rgb = vload3(id.x + width * id.y, input);
 
-    float Y = (0.257f * rgb.z) + (0.504f * rgb.y) + (0.098f * rgb.x) + 16.f;
+#if defined(BT601_FULL) || defined(BT709_FULL)
+    float range = 0.f;
+#else
+    float range = 16.f;
+#endif
+
+    float Y = (0.257f * rgb.z) + (0.504f * rgb.y) + (0.098f * rgb.x) + range;
 
 #ifdef FLIP
 #ifdef USE_STAGGERED
