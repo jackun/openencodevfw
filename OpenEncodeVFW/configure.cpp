@@ -147,7 +147,7 @@ void CodecInst::prepareConfigMap(bool quickset)
 	mConfigTable["sendFPS"] = 0; //Send proper video fps to encoder. Not sending allows video conversion with weird framerates
 	mConfigTable["YV12AsNV12"] = 0;//YUV or YVU or UYV or...
 	mConfigTable["SpeedyMath"] = 1; //Enable some OpenCL optimizations
-	mConfigTable["colormatrix"] = BT709_FULL;
+	mConfigTable["colormatrix"] = BT601_LIMITED;
 	mConfigTable["Log"] = 0;
 	mConfigTable["LogMsgBox"] = 0;
 	mConfigTable["IDRframes"] = 250; //encIDRPeriod?
