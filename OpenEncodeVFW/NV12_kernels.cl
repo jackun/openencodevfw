@@ -1,8 +1,5 @@
-//#define SATURATE_MANUALLY
 //BMP is usually upside-down
 #define FLIP
-//#define USE_FLOAT3
-#define USE_FLOAT4
 //#define USE_STAGGERED
 
 #define UpperLimit	235.0f/255.0f
@@ -154,25 +151,19 @@ __kernel void RGBAtoNV12_Y(__global uchar4 *input,
     float4 rgba = convert_float4(input[id.x + width * id.y]);
 
 #if defined(BT601_FULL) || defined(BT709_FULL)
-    float range = 0.f;
+    uchar Y = convert_uchar_sat_rte(dot(Ycoeff, rgba));
 #else
-    float range = 16.f;
-#endif
-
-#ifdef USE_FLOAT4
-    float Y = dot(rgba, Ycoeff) + range;
-#else
-    float Y = (0.257f * rgba.x) + (0.504f * rgba.y) + (0.098f * rgba.z) + 16.f;
+    uchar Y = convert_uchar_sat_rte(dot(Ycoeff, rgba) + 16.f);
 #endif
 
 #ifdef FLIP
 #ifdef USE_STAGGERED
-    output[id.x + ( ((height*2  - offset)- id.y - 1) ) * alignedWidth] = convert_uchar_sat_rte(Y);
+    output[id.x + ( ((height*2  - offset)- id.y - 1) ) * alignedWidth] = Y;
 #else
-    output[id.x + (height- id.y - 1) * alignedWidth] = convert_uchar_sat_rte(Y);
+    output[id.x + (height- id.y - 1) * alignedWidth] = Y;
 #endif
 #else
-    output[offset + id.x + id.y * alignedWidth] = convert_uchar_sat_rte(Y);
+    output[offset + id.x + id.y * alignedWidth] = Y;
 #endif
 }
 
@@ -209,51 +200,25 @@ __kernel void RGBAtoNV12_UV(__global uchar4 *input,
     uint src = id.x * 2 + width * id.y * 2;
 
     // sample 2x2 square
-    uchar4 rgb00 = input[src];
-    uchar4 rgb01 = input[src + 1];
+    float4 rgb00 = convert_float4(input[src]);
+    float4 rgb01 = convert_float4(input[src + 1]);
     //next line
-    uchar4 rgb10 = input[src + width];
-    uchar4 rgb11 = input[src + width + 1];
-    
-//slower (on cpu atleast)
-#ifdef USE_FLOAT4
-    //1,2
-    float4 RGB00 = convert_float4(rgb00);
-    float4 RGB01 = convert_float4(rgb01);
-    float4 RGB10 = convert_float4(rgb10);
-    float4 RGB11 = convert_float4(rgb11);
+    float4 rgb10 = convert_float4(input[src + width]);
+    float4 rgb11 = convert_float4(input[src + width + 1]);
 
-    //1
-    //float4 RGB = (RGB00 + RGB01 + RGB10 + RGB11) * 0.25f
-    //float2 UV = (float2)(-(0.148f * RGB.x) - (0.291f * RGB.y) + (0.439f * RGB.z) + 128.f,
-    //                      (0.439f * RGB.x) - (0.368f * RGB.y) - (0.071f * RGB.z) + 128.f);
+    float2 UV00 =  (float2)(dot(rgb00, Ucoeff) + 128.f,
+                            dot(rgb00, Vcoeff) + 128.f);
 
-    //2
-    float2 UV00 = toUV4(RGB00);
-    float2 UV01 = toUV4(RGB01);
-    float2 UV10 = toUV4(RGB10);
-    float2 UV11 = toUV4(RGB11);
-    uchar2 UV = convert_uchar2_sat_rte((2.f + UV00 + UV01 + UV10 + UV11) / 4.f);
+    float2 UV01 =  (float2)(dot(rgb01, Ucoeff) + 128.f,
+                            dot(rgb01, Vcoeff) + 128.f);
 
-    //TODO convert_uchar2 slows this down?
-    //uchar2 UV = convert_uchar2((2 + UV00 + UV01 + UV10 + UV11) / 4);
+    float2 UV10 =  (float2)(dot(rgb10, Ucoeff) + 128.f,
+                            dot(rgb10, Vcoeff) + 128.f);
 
-#else
+    float2 UV11 =  (float2)(dot(rgb11, Ucoeff) + 128.f,
+                            dot(rgb11, Vcoeff) + 128.f);
 
-    float2 UV00 =  (float2)(-(0.148f * rgb00.x) - (0.291f * rgb00.y) + (0.439f * rgb00.z) + 128.f,
-                             (0.439f * rgb00.x) - (0.368f * rgb00.y) - (0.071f * rgb00.z) + 128.f);
-
-    float2 UV01 =  (float2)(-(0.148f * rgb01.x) - (0.291f * rgb01.y) + (0.439f * rgb01.z) + 128.f,
-                             (0.439f * rgb01.x) - (0.368f * rgb01.y) - (0.071f * rgb01.z) + 128.f);
-
-    float2 UV10 =  (float2)(-(0.148f * rgb10.x) - (0.291f * rgb10.y) + (0.439f * rgb10.z) + 128.f,
-                             (0.439f * rgb10.x) - (0.368f * rgb10.y) - (0.071f * rgb10.z) + 128.f);
-
-    float2 UV11 =  (float2)(-(0.148f * rgb11.x) - (0.291f * rgb11.y) + (0.439f * rgb11.z) + 128.f,
-                             (0.439f * rgb11.x) - (0.368f * rgb11.y) - (0.071f * rgb11.z) + 128.f);
-
-    float2 UV =  (2 + UV00 + UV01 + UV10 + UV11) / 4;
-#endif
+    uchar2 UV =  convert_uchar2_sat_rte((2 + UV00 + UV01 + UV10 + UV11) / 4);
 
     output[uv_offset]     = UV.x;
     output[uv_offset + 1] = UV.y;
@@ -269,8 +234,6 @@ __kernel void BGRAtoNV12_Y(const __global uchar4 *input,
     int width = get_global_size(0);
     int height = get_global_size(1);
 
-    //uchar4 bgra = input[id.x + width * id.y];
-    //float Y = (0.257f * bgra.z) + (0.504f * bgra.y) + (0.098f * bgra.x) + 16.f;
     float4 bgra = convert_float4(input[id.x + width * id.y]);
 
 #if defined(BT601_FULL) || defined(BT709_FULL)
@@ -338,6 +301,7 @@ __kernel void BGRAtoNV12_UV(const __global uchar4 *input,
 
     float2 UV11 =  (float2)(dot(bgr11, UcoeffB) + 128.f,
                             dot(bgr11, VcoeffB) + 128.f);
+
     uchar2 UV =  convert_uchar2_sat_rte((2 + UV00 + UV01 + UV10 + UV11) / 4);
 
     output[uv_offset]     = UV.x;
@@ -356,9 +320,13 @@ __kernel void RGBtoNV12_Y(__global uchar *input,
     uint height = get_global_size(1);
 
     //Unaligned read and probably slooooow
-    uchar3 rgb = vload3(id.x + width * id.y, input);
-    //BT.601 limited
-    uchar Y = convert_uchar_sat_rte((0.257f * rgb.x) + (0.504f * rgb.y) + (0.098f * rgb.z) + 16.f);
+    float4 rgba = (float4)(convert_float3(vload3(id.x + width * id.y, input)), 1.0f);
+
+#if defined(BT601_FULL) || defined(BT709_FULL)
+    uchar Y = convert_uchar_sat_rte(dot(Ycoeff, rgba));
+#else
+    uchar Y = convert_uchar_sat_rte(dot(Ycoeff, rgba) + 16.f);
+#endif
 
 #ifdef FLIP
 #ifdef USE_STAGGERED
@@ -404,27 +372,28 @@ __kernel void RGBtoNV12_UV(__global uchar *input,
     uint src = id.x * 2 + width * id.y * 2;
 
     // sample 2x2 square
-    uchar3 rgb00 = vload3(src, input);
-    uchar3 rgb01 = vload3(src + 1, input);
+    float4 rgb00 = (float4)(convert_float3(vload3(src, input)), 1.0f);
+    float4 rgb01 = (float4)(convert_float3(vload3(src + 1, input)), 1.0f);
     //next line
-    uchar3 rgb10 = vload3(src + width, input);
-    uchar3 rgb11 = vload3(src + width + 1, input);
+    float4 rgb10 = (float4)(convert_float3(vload3(src + width, input)), 1.0f);
+    float4 rgb11 = (float4)(convert_float3(vload3(src + width + 1, input)), 1.0f);
 
-    //convert_float seemed to be slower on CPU (Core2)
-    // BT.601 limited
-    float3 RGB00 = convert_float3(rgb00);
-    float3 RGB01 = convert_float3(rgb01);
-    float3 RGB10 = convert_float3(rgb10);
-    float3 RGB11 = convert_float3(rgb11);
+    float2 UV00 =  (float2)(dot(rgb00, Ucoeff) + 128.f,
+                            dot(rgb00, Vcoeff) + 128.f);
 
-    float2 UV00 = toUV(RGB00);
-    float2 UV01 = toUV(RGB01);
-    float2 UV10 = toUV(RGB10);
-    float2 UV11 = toUV(RGB11);
-    float2 UV =  (2 + UV00 + UV01 + UV10 + UV11) / 4;
+    float2 UV01 =  (float2)(dot(rgb01, Ucoeff) + 128.f,
+                            dot(rgb01, Vcoeff) + 128.f);
 
-    output[uv_offset]     = UV.x;//convert_uchar_rte(UV.x);
-    output[uv_offset + 1] = UV.y;//convert_uchar_rte(UV.y);
+    float2 UV10 =  (float2)(dot(rgb10, Ucoeff) + 128.f,
+                            dot(rgb10, Vcoeff) + 128.f);
+
+    float2 UV11 =  (float2)(dot(rgb11, Ucoeff) + 128.f,
+                            dot(rgb11, Vcoeff) + 128.f);
+
+    uchar2 UV =  convert_uchar2_sat_rte((2 + UV00 + UV01 + UV10 + UV11) / 4);
+
+    output[uv_offset]     = UV.x;
+    output[uv_offset + 1] = UV.y;
 }
 
 __kernel void BGRtoNV12_Y(__global uchar *input,
@@ -438,13 +407,17 @@ __kernel void BGRtoNV12_Y(__global uchar *input,
     uint height = get_global_size(1);
 
     //Unaligned read and probably slooooow
-    uchar3 rgb = vload3(id.x + width * id.y, input);
-    //BT.601 limited
-    uchar Y = convert_uchar_sat_rte((0.257f * rgb.z) + (0.504f * rgb.y) + (0.098f * rgb.x) + 16.f);
+    float4 bgra = (float4)(convert_float3(vload3(id.x + width * id.y, input)), 1.0f);
+
+#if defined(BT601_FULL) || defined(BT709_FULL)
+    uchar Y = convert_uchar_sat_rte(dot(YcoeffB, bgra));
+#else
+    uchar Y = convert_uchar_sat_rte(dot(YcoeffB, bgra) + 16.f);
+#endif
 
 #ifdef FLIP
 #ifdef USE_STAGGERED
-    output[id.x + ( ((height*2  - offset)- id.y - 1) ) * alignedWidth] = Y;//convert_uchar_sat_rte(Y);
+    output[id.x + ( ((height*2  - offset)- id.y - 1) ) * alignedWidth] = Y;
 #else
     output[id.x + (height- id.y - 1) * alignedWidth] = Y;
 #endif
@@ -484,29 +457,28 @@ __kernel void BGRtoNV12_UV(__global uchar *input,
     uint src = id.x * 2 + width * id.y * 2;
 
     // sample 2x2 square
-    uchar3 bgr00 = vload3(src, input);
-    uchar3 bgr01 = vload3(src + 1, input);
+    float4 bgr00 = (float4)(convert_float3(vload3(src, input)), 1.0f);
+    float4 bgr01 = (float4)(convert_float3(vload3(src + 1, input)), 1.0f);
     //next line
-    uchar3 bgr10 = vload3(src + width, input);
-    uchar3 bgr11 = vload3(src + width + 1, input);
+    float4 bgr10 = (float4)(convert_float3(vload3(src + width, input)), 1.0f);
+    float4 bgr11 = (float4)(convert_float3(vload3(src + width + 1, input)), 1.0f);
 
-    // BT.601 limited
-    float2 UV00 =  (float2)(-(0.148f * bgr00.z) - (0.291f * bgr00.y) + (0.439f * bgr00.x) + 128.f,
-                             (0.439f * bgr00.z) - (0.368f * bgr00.y) - (0.071f * bgr00.x) + 128.f);
+    float2 UV00 =  (float2)(dot(bgr00, UcoeffB) + 128.f,
+                            dot(bgr00, VcoeffB) + 128.f);
 
-    float2 UV01 =  (float2)(-(0.148f * bgr01.z) - (0.291f * bgr01.y) + (0.439f * bgr01.x) + 128.f,
-                             (0.439f * bgr01.z) - (0.368f * bgr01.y) - (0.071f * bgr01.x) + 128.f);
+    float2 UV01 =  (float2)(dot(bgr01, UcoeffB) + 128.f,
+                            dot(bgr01, VcoeffB) + 128.f);
 
-    float2 UV10 =  (float2)(-(0.148f * bgr10.z) - (0.291f * bgr10.y) + (0.439f * bgr10.x) + 128.f,
-                             (0.439f * bgr10.z) - (0.368f * bgr10.y) - (0.071f * bgr10.x) + 128.f);
+    float2 UV10 =  (float2)(dot(bgr10, UcoeffB) + 128.f,
+                            dot(bgr10, VcoeffB) + 128.f);
 
-    float2 UV11 =  (float2)(-(0.148f * bgr11.z) - (0.291f * bgr11.y) + (0.439f * bgr11.x) + 128.f,
-                             (0.439f * bgr11.z) - (0.368f * bgr11.y) - (0.071f * bgr11.x) + 128.f);
+    float2 UV11 =  (float2)(dot(bgr11, UcoeffB) + 128.f,
+                            dot(bgr11, VcoeffB) + 128.f);
 
-    float2 UV =  (2 + UV00 + UV01 + UV10 + UV11) / 4;
+    uchar2 UV = convert_uchar2_sat_rte((2 + UV00 + UV01 + UV10 + UV11) / 4);
 
-    output[uv_offset]     = UV.x;//convert_uchar_rte(UV.x);
-    output[uv_offset + 1] = UV.y;//convert_uchar_rte(UV.y);
+    output[uv_offset]     = UV.x;
+    output[uv_offset + 1] = UV.y;
 }
 
 //AMD openCL frontend adds gibberish at the end, so add a comment here to ... comment it. Mind the editors that append new line (\n).
