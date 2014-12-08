@@ -231,8 +231,8 @@ int clConvert::createKernels(COLORMATRIX matrix)
 
 	switch (matrix)
 	{
-	case BT709_FULL:
-		flagsStr.append("-DBT709_FULL ");
+	case BT601_LIMITED:
+		flagsStr.append("-DBT601_LIMITED ");
 		break;
 	case BT601_FULL:
 		flagsStr.append("-DBT601_FULL ");
@@ -240,9 +240,15 @@ int clConvert::createKernels(COLORMATRIX matrix)
 	case BT709_LIMITED:
 		flagsStr.append("-DBT709_LIMITED ");
 		break;
-	/*case BT601_LIMITED:
-		flagsStr.append("-DBT601_LIMITED ");
-		break;*/
+	case BT709_FULL:
+		flagsStr.append("-DBT709_FULL ");
+		break;
+	case BT709_ALT1_LIMITED:
+		flagsStr.append("-DBT709_ALT1_LIMITED ");
+		break;
+	case BT709_ALT1_FULL:
+		flagsStr.append("-DBT709_ALT1_FULL ");
+		break;
 	default:
 		flagsStr.append("-DBT601_LIMITED ");
 		break;
