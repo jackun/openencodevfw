@@ -246,9 +246,9 @@ int clConvert::createKernels(COLORMATRIX matrix)
 	case BT709_ALT1_LIMITED:
 		flagsStr.append("-DBT709_ALT1_LIMITED ");
 		break;
-	case BT709_ALT1_FULL:
+	/*case BT709_ALT1_FULL:
 		flagsStr.append("-DBT709_ALT1_FULL ");
-		break;
+		break;*/
 	default:
 		flagsStr.append("-DBT601_LIMITED ");
 		break;

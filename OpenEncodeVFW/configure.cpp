@@ -147,7 +147,7 @@ void CodecInst::prepareConfigMap(bool quickset)
 	mConfigTable["sendFPS"] = 0; //Send proper video fps to encoder. Not sending allows video conversion with weird framerates
 	mConfigTable["YV12AsNV12"] = 0;//YUV or YVU or UYV or...
 	mConfigTable["SpeedyMath"] = 1; //Enable some OpenCL optimizations
-	mConfigTable["colormatrix"] = BT601_FULL;
+	mConfigTable["colormatrix"] = BT709_FULL;
 	mConfigTable["Log"] = 0;
 	mConfigTable["LogMsgBox"] = 0;
 	mConfigTable["IDRframes"] = 250; //encIDRPeriod?
@@ -792,9 +792,9 @@ static void DialogUpdate(HWND hwndDlg, CodecInst* pinst)
 	{
 		SendDlgItemMessage(hwndDlg, IDC_COLORMATRIX, CB_ADDSTRING, 0, (LPARAM)L"BT.601 full range RGB");
 		SendDlgItemMessage(hwndDlg, IDC_COLORMATRIX, CB_ADDSTRING, 0, (LPARAM)L"BT.601 limited range RGB");
-		SendDlgItemMessage(hwndDlg, IDC_COLORMATRIX, CB_ADDSTRING, 0, (LPARAM)L"BT.709 full range RGB");
+		SendDlgItemMessage(hwndDlg, IDC_COLORMATRIX, CB_ADDSTRING, 0, (LPARAM)L"BT.709 full range RGB (recommended)");
 		SendDlgItemMessage(hwndDlg, IDC_COLORMATRIX, CB_ADDSTRING, 0, (LPARAM)L"BT.709 limited range RGB");
-		SendDlgItemMessage(hwndDlg, IDC_COLORMATRIX, CB_ADDSTRING, 0, (LPARAM)L"BT.709 alt. full range RGB");
+		//SendDlgItemMessage(hwndDlg, IDC_COLORMATRIX, CB_ADDSTRING, 0, (LPARAM)L"BT.709 alt. full range RGB");
 		SendDlgItemMessage(hwndDlg, IDC_COLORMATRIX, CB_ADDSTRING, 0, (LPARAM)L"BT.709 alt. limited range RGB");
 		uint32 matrix = pinst->mConfigTable["colormatrix"];
 		if (matrix >= COLORMATRIX_COUNT)
