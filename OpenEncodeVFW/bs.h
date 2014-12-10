@@ -43,6 +43,10 @@ static inline void bs_init( bs_t *s, void *p_data, int i_data )
     s->p_end   = s->p + i_data;
     s->i_left  = 8;
 }
+static inline int bs_pos_byte(bs_t* s) 
+{
+	return (s->p - s->p_start);
+}
 static inline int bs_pos( bs_t *s )
 {
     return (int)( 8 * ( s->p - s->p_start ) + 8 - s->i_left );
@@ -265,6 +269,11 @@ static inline void bs_write1( bs_t *s, uint32 i_bits )
             s->i_left = 8;
         }
     }
+}
+
+static inline bool bs_byte_aligned(bs_t* b)
+{
+	return (b->i_left == 8);
 }
 
 static inline void bs_align( bs_t *s )

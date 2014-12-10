@@ -122,3 +122,5 @@ public:
 
 	int nal_decode( /*nal_t *nal,*/ void *p_data, int i_data );
 };
+
+int add_vui(void *srcPtr, size_t srcSize, void *dstPtr, size_t dstSize, int color);

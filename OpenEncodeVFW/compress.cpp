@@ -802,7 +802,46 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
 
 		//int i_ref_idc = (start[3] >> 5) & 3;
 		int i_type = start[3] & 0x1f;
-		if (i_type == NAL_SLICE_IDR)
+		if (i_type == NAL_SPS)
+		{
+			void *tmp = malloc(mCompressed_size);
+			memcpy(tmp, outData, mCompressed_size);
+			start = (uint8 *)tmp;
+			end = (uint8 *)tmp + mCompressed_size;
+			start = std::search(start, end, start_seq, start_seq + 3);
+
+			decltype(start) dst = outData;
+			decltype(start) dstEnd = outData + mCompressed_size + 32;
+
+			//Do it again :P
+			while (start != end)
+			{
+				decltype(start) next = std::search(start + 1, end, start_seq, start_seq + 3);
+
+				i_type = start[3] & 0x1f;
+				if (i_type == NAL_SPS)
+				{
+					*((int*)dst) = 0;
+					dst += 3;
+					*(dst++) = 1;
+					*(dst++) = start[3];
+					int sps_size = add_vui(start + 4, next - start - 4, dst, dstEnd - dst, mConfigTable["colormatrix"]);
+					dst += sps_size;
+					mCompressed_size += sps_size - (next - start);
+				}
+				else
+				{
+					memcpy(dst, start, next - start);
+					dst += next - start;
+				}
+
+				start = next;
+			}
+
+			free(tmp);
+			break;
+		}
+		else if (i_type == NAL_SLICE_IDR)
 		{
 			mHasIDR = true;
 			break;
