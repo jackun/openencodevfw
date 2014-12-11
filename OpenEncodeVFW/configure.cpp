@@ -792,6 +792,7 @@ static void DialogUpdate(HWND hwndDlg, CodecInst* pinst)
 	{
 		SendDlgItemMessage(hwndDlg, IDC_COLORMATRIX, CB_ADDSTRING, 0, (LPARAM)L"BT.601 full range RGB");
 		SendDlgItemMessage(hwndDlg, IDC_COLORMATRIX, CB_ADDSTRING, 0, (LPARAM)L"BT.601 limited range RGB");
+		SendDlgItemMessage(hwndDlg, IDC_COLORMATRIX, CB_ADDSTRING, 0, (LPARAM)L"BT.601 full range RGB/YCbCr");
 		SendDlgItemMessage(hwndDlg, IDC_COLORMATRIX, CB_ADDSTRING, 0, (LPARAM)L"BT.709 full range RGB (recommended)");
 		SendDlgItemMessage(hwndDlg, IDC_COLORMATRIX, CB_ADDSTRING, 0, (LPARAM)L"BT.709 limited range RGB");
 		//SendDlgItemMessage(hwndDlg, IDC_COLORMATRIX, CB_ADDSTRING, 0, (LPARAM)L"BT.709 alt. full range RGB");
