@@ -821,6 +821,7 @@ int add_vui(void *srcPtr, size_t srcSize, void *dstPtr, size_t dstSize, int colo
 		sps.vui.matrix_coefficients = 5;
 		break;
 	case BT601_FULL:
+	case BT601_FULL_YCbCr:
 		sps.vui.colour_primaries = 5;
 		sps.vui.transfer_characteristics = 6;
 		sps.vui.matrix_coefficients = 5;
