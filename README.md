@@ -11,7 +11,7 @@ Last [MSVC++2010 commit](https://github.com/jackun/openencodevfw/tree/d6c7c53b61
 
 **NOTE: You need to install x86 version for 32bit codec even if your Windows is 64 bit.**
 
-**NOTE: VCE on cards/APUs prior to Tonga only go up to 1080p and solid 1080p60 recording can not be quaranteed (yet) unfortunately.**
+**NOTE: VCE on cards/APUs prior to Tonga only go up to 1080p and solid 1080p60 recording can not be guaranteed (yet) unfortunately.**
 
 ## Compatible hardware
 
