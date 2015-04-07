@@ -10,6 +10,7 @@ Extra settings are saved to registry under `HKCU\Software\OpenEncodeVFW`
 Last [MSVC++2010 commit](https://github.com/jackun/openencodevfw/tree/d6c7c53b61af9447b30d6d6d86be8725801d0fb7).
 
 **NOTE: You need to install x86 version for 32bit codec even if your Windows is 64 bit.**
+**NOTE: VCE on cards/APUs prior to Tonga only go up to 1080p and solid 1080p60 recording can not be quaranteed (yet) unfortunately.
 
 ## Compatible hardware
 
