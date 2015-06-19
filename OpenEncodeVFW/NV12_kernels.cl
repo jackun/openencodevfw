@@ -107,10 +107,10 @@ __kernel void RGBAtoNV12_Y(__global uchar4 *input,
     int width = get_global_size(0);
     int height = get_global_size(1);
 
-    float4 rgba = (float4)(convert_float3(input[id.x + width * id.y].s012), 255.f);
+    float4 rgba = (float4)(convert_float3(input[id.x + width * id.y].xyz), 255.f);
 
 #ifdef RGB_LIMITED
-	rgba.s012 = 16.f + rgba.s012 * 219.f / 255.f;
+	rgba.xyz = 16.f + rgba.xyz * 219.f / 255.f;
 #endif
 
     uchar Y = convert_uchar_sat_rte(dot(Ycoeff, rgba));
@@ -145,17 +145,17 @@ __kernel void RGBAtoNV12_UV(__global uchar4 *input,
     uint src = id.x * 2 + width * id.y * 2;
 
     // sample 2x2 square
-    float4 rgb00 = (float4)(convert_float3(input[src].s012), 255.f);
-    float4 rgb01 = (float4)(convert_float3(input[src + 1].s012), 255.f);
+    float4 rgb00 = (float4)(convert_float3(input[src].xyz), 255.f);
+    float4 rgb01 = (float4)(convert_float3(input[src + 1].xyz), 255.f);
     //next line
-    float4 rgb10 = (float4)(convert_float3(input[src + width].s012), 255.f);
-    float4 rgb11 = (float4)(convert_float3(input[src + width + 1].s012), 255.f);
+    float4 rgb10 = (float4)(convert_float3(input[src + width].xyz), 255.f);
+    float4 rgb11 = (float4)(convert_float3(input[src + width + 1].xyz), 255.f);
 
 #ifdef RGB_LIMITED
-	rgb00.s012 = 16.f + rgb00.s012 * 219.f / 255.f;
-	rgb01.s012 = 16.f + rgb01.s012 * 219.f / 255.f;
-	rgb10.s012 = 16.f + rgb10.s012 * 219.f / 255.f;
-	rgb11.s012 = 16.f + rgb11.s012 * 219.f / 255.f;
+	rgb00.xyz = 16.f + rgb00.xyz * 219.f / 255.f;
+	rgb01.xyz = 16.f + rgb01.xyz * 219.f / 255.f;
+	rgb10.xyz = 16.f + rgb10.xyz * 219.f / 255.f;
+	rgb11.xyz = 16.f + rgb11.xyz * 219.f / 255.f;
 #endif
 
     float2 UV00 = (float2)(dot(rgb00, Ucoeff), dot(rgb00, Vcoeff));
@@ -179,10 +179,10 @@ __kernel void BGRAtoNV12_Y(const __global uchar4 *input,
     int width = get_global_size(0);
     int height = get_global_size(1);
 
-    float4 bgra = (float4)(convert_float3(input[id.x + width * id.y].s012), 255.f);
+    float4 bgra = (float4)(convert_float3(input[id.x + width * id.y].xyz), 255.f);
 
 #ifdef RGB_LIMITED
-	bgra.s012 = 16.f + bgra.s012 * 219.f / 255.f;
+	bgra.xyz = 16.f + bgra.xyz * 219.f / 255.f;
 #endif
 
     uchar Y = convert_uchar_sat_rte(dot(YcoeffB, bgra));
@@ -216,17 +216,17 @@ __kernel void BGRAtoNV12_UV(const __global uchar4 *input,
 
 	//Seems like no difference between dot() and plain mul/add on GPU atleast
     // sample 2x2 square
-    float4 bgr00 = (float4)(convert_float3(input[src].s012), 255.f);
-    float4 bgr01 = (float4)(convert_float3(input[src + 1].s012), 255.f);
+    float4 bgr00 = (float4)(convert_float3(input[src].xyz), 255.f);
+    float4 bgr01 = (float4)(convert_float3(input[src + 1].xyz), 255.f);
     //next line
-    float4 bgr10 = (float4)(convert_float3(input[src + width].s012), 255.f);
-    float4 bgr11 = (float4)(convert_float3(input[src + width + 1].s012), 255.f);
+    float4 bgr10 = (float4)(convert_float3(input[src + width].xyz), 255.f);
+    float4 bgr11 = (float4)(convert_float3(input[src + width + 1].xyz), 255.f);
 
 #ifdef RGB_LIMITED
-	bgr00.s012 = 16.f + bgr00.s012 * 219.f / 255.f;
-	bgr01.s012 = 16.f + bgr01.s012 * 219.f / 255.f;
-	bgr10.s012 = 16.f + bgr10.s012 * 219.f / 255.f;
-	bgr11.s012 = 16.f + bgr11.s012 * 219.f / 255.f;
+	bgr00.xyz = 16.f + bgr00.xyz * 219.f / 255.f;
+	bgr01.xyz = 16.f + bgr01.xyz * 219.f / 255.f;
+	bgr10.xyz = 16.f + bgr10.xyz * 219.f / 255.f;
+	bgr11.xyz = 16.f + bgr11.xyz * 219.f / 255.f;
 #endif
 
     float2 UV00 = (float2)(dot(bgr00, UcoeffB), dot(bgr00, VcoeffB));
@@ -255,7 +255,7 @@ __kernel void RGBtoNV12_Y(__global uchar *input,
     float4 rgba = (float4)(convert_float3(vload3(id.x + width * id.y, input)), 255.0f);
 
 #ifdef RGB_LIMITED
-	rgba.s012 = 16.f + rgba.s012 * 219.f / 255.f;
+	rgba.xyz = 16.f + rgba.xyz * 219.f / 255.f;
 #endif
 
     uchar Y = convert_uchar_sat_rte(dot(Ycoeff, rgba));
@@ -297,10 +297,10 @@ __kernel void RGBtoNV12_UV(__global uchar *input,
     float4 rgb11 = (float4)(convert_float3(vload3(src + width + 1, input)), 255.0f);
 
 #ifdef RGB_LIMITED
-	rgb00.s012 = 16.f + rgb00.s012 * 219.f / 255.f;
-	rgb01.s012 = 16.f + rgb01.s012 * 219.f / 255.f;
-	rgb10.s012 = 16.f + rgb10.s012 * 219.f / 255.f;
-	rgb11.s012 = 16.f + rgb11.s012 * 219.f / 255.f;
+	rgb00.xyz = 16.f + rgb00.xyz * 219.f / 255.f;
+	rgb01.xyz = 16.f + rgb01.xyz * 219.f / 255.f;
+	rgb10.xyz = 16.f + rgb10.xyz * 219.f / 255.f;
+	rgb11.xyz = 16.f + rgb11.xyz * 219.f / 255.f;
 #endif
 
     float2 UV00 =  (float2)(dot(rgb00, Ucoeff), dot(rgb00, Vcoeff));
@@ -328,7 +328,7 @@ __kernel void BGRtoNV12_Y(__global uchar *input,
     float4 bgra = (float4)(convert_float3(vload3(id.x + width * id.y, input)), 255.0f);
 
 #ifdef RGB_LIMITED
-	bgra.s012 = 16.f + bgra.s012 * 219.f / 255.f;
+	bgra.xyz = 16.f + bgra.xyz * 219.f / 255.f;
 #endif
 
     uchar Y = convert_uchar_sat_rte(dot(YcoeffB, bgra));
@@ -369,10 +369,10 @@ __kernel void BGRtoNV12_UV(__global uchar *input,
     float4 bgr11 = (float4)(convert_float3(vload3(src + width + 1, input)), 255.0f);
 
 #ifdef RGB_LIMITED
-	bgr00.s012 = 16.f + bgr00.s012 * 219.f / 255.f;
-	bgr01.s012 = 16.f + bgr01.s012 * 219.f / 255.f;
-	bgr10.s012 = 16.f + bgr10.s012 * 219.f / 255.f;
-	bgr11.s012 = 16.f + bgr11.s012 * 219.f / 255.f;
+	bgr00.xyz = 16.f + bgr00.xyz * 219.f / 255.f;
+	bgr01.xyz = 16.f + bgr01.xyz * 219.f / 255.f;
+	bgr10.xyz = 16.f + bgr10.xyz * 219.f / 255.f;
+	bgr11.xyz = 16.f + bgr11.xyz * 219.f / 255.f;
 #endif
 
     float2 UV00 = (float2)(dot(bgr00, UcoeffB), dot(bgr00, VcoeffB));
