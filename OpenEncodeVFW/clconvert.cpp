@@ -531,7 +531,7 @@ int clConvert::decodeInit()
 	return FAILURE;
 }
 
-int clConvert::encodeInit(bool staggered, cl_mem dstBuffer)
+int clConvert::encodeInit(cl_mem dstBuffer)
 {
 	cl_int statusCL = CL_SUCCESS;
 	profSecs1 = 0;
@@ -543,7 +543,6 @@ int clConvert::encodeInit(bool staggered, cl_mem dstBuffer)
 	//int align = 4 * bpp_bytes - 1;//or always to 16 bytes (float4)?
 	int align = 256 - 1;//or align to 256 bytes for faster memory access?
 	int input_size_aligned = (input_size + align) & ~align;
-	int input_size_half = iWidth * (iHeight >> 1) * bpp_bytes;
 
 	//VCE encoder needs aligned input, adjust pitch here
 	oAlignedWidth = ((iWidth + (256 - 1)) & ~(256 - 1));
@@ -556,7 +555,7 @@ int clConvert::encodeInit(bool staggered, cl_mem dstBuffer)
 		//640x272 RGBA >~3GB/s map/memcpy, <~3GB/s WriteBuffer
 		CL_MEM_READ_ONLY | CL_MEM_USE_PERSISTENT_MEM_AMD,
 		//CL_MEM_READ_ONLY|CL_MEM_ALLOC_HOST_PTR, //~6GB/s map/memcpy
-		staggered ? input_size_half : input_size_aligned,
+		input_size_aligned,
 		NULL,
 		&statusCL);
 	CHECK_OPENCL_ERROR(statusCL, "clCreateBuffer(g_inputBuffer[0]) failed!");
@@ -573,17 +572,7 @@ int clConvert::encodeInit(bool staggered, cl_mem dstBuffer)
 	g_inputBuffer[0] = clCreateImage(g_context, CL_MEM_READ_ONLY,// | CL_MEM_COPY_HOST_PTR,
 	&fmt, &desc, NULL, &statusCL);*/
 
-	if (staggered) {
-		g_inputBuffer[1] = f_clCreateBuffer(
-			g_context,
-			CL_MEM_READ_ONLY,
-			input_size - input_size_half,
-			NULL,
-			&statusCL);
-		CHECK_OPENCL_ERROR(statusCL, "clCreateBuffer(g_inputBuffer[1]) failed!");
-	}
-	else
-		g_inputBuffer[1] = NULL;
+	g_inputBuffer[1] = NULL;
 
 	//overhead test
 	setKernelArgs(g_y_kernel, g_inputBuffer[0], dstBuffer);
@@ -595,146 +584,6 @@ int clConvert::encodeInit(bool staggered, cl_mem dstBuffer)
 	char tmp[1024];
 	sprintf_s(tmp, "raw_%dx%d.nv12", oAlignedWidth, oHeight);
 	//hRaw = fopen(tmp, "wb+");
-	return SUCCESS;
-}
-
-//RGB(A) to NV12
-//clFlushs may be unnecessery. nVidia OpenCL Best Practices oclCopyComputeOverlap sample.
-//Cut buffer to half and start converting it as soon as 1st half is uploaded to device. Seems slower though.
-int clConvert::convertStaggered(const uint8* srcPtr, cl_mem dstBuffer)
-{
-	cl_int status = CL_SUCCESS;
-	bool flipped = true;
-	size_t offset[] = { 0, 0 };
-	size_t globalThreads[] = { iWidth, iHeight };
-	size_t localThreads[] = { localThreads_Max[0],
-		localThreads_Max[1] };
-
-	g_outputBuffer = dstBuffer;
-	int srcTotal = iWidth * iHeight * bpp_bytes;
-	int srcSize1 = iWidth * (iHeight >> 1) * bpp_bytes;
-	int srcSize2 = srcTotal - srcSize1;
-
-#if 0
-	//Debug, clear old output buffer
-	cl_event inMapEvt;
-	mapPtr = f_clEnqueueMapBuffer( g_cmd_queue[0], dstBuffer, CL_TRUE, CL_MAP_WRITE, 0, 
-		oAlignedWidth * iHeight * 3/2, 0, NULL, NULL, &status);
-	status = f_clFlush(g_cmd_queue[0]);
-
-	//copy to mapped buffer
-	memset(mapPtr, 128, oAlignedWidth * iHeight * 3/2);//set to gray
-
-	cl_event unmapEvent;
-	status = f_clEnqueueUnmapMemObject(g_cmd_queue[0], dstBuffer, mapPtr, 0, NULL, &unmapEvent);
-	status = f_clFlush(g_cmd_queue[0]);
-	waitForEventAndRelease(&unmapEvent);
-#endif
-
-	//**************************** Queue first half write ****************************
-	status = f_clEnqueueWriteBuffer(g_cmd_queue[0], g_inputBuffer[0],
-		CL_FALSE, 0, srcSize1, srcPtr, 0, NULL, NULL);
-	CHECK_OPENCL_ERROR(status, "clEnqueueWriteBuffer() #1 failed");
-
-	f_clFlush(g_cmd_queue[0]);
-
-	//**************************** Run over first half ****************************
-	globalThreads[0] = iWidth;
-	globalThreads[1] = iHeight >> 1;
-	//globalThreads[1] -= globalThreads[1] % 2;
-	//TODO CPU driver will complain.
-	localThreads[1] = localThreads_Max[1];// / (4 + thread_extra_div);
-
-	setKernelArgs(g_y_kernel, g_inputBuffer[0], dstBuffer);
-	setKernelArgs(g_uv_kernel, g_inputBuffer[0], dstBuffer);
-	setKernelOffset(g_y_kernel, 0);
-
-	int halfHeightFix = iHeight >> 1;
-	halfHeightFix = -(halfHeightFix % 2) * 3;
-	setKernelOffset(g_uv_kernel, halfHeightFix);
-
-	// RGB -> NV12
-	if (runKernel(g_y_kernel, g_cmd_queue[0], globalThreads, localThreads, &profSecs1, false))
-	{
-		mLog->Log(L"g_y_kernel #1 failed!\n");
-		return FAILURE;
-	}
-
-	globalThreads[0] = iWidth / 2;
-	globalThreads[1] = iHeight / 4;
-	//TODO CPU driver will complain.
-	localThreads[1] = localThreads_Max[1];// / (8 + thread_extra_div);
-
-	if (runKernel(g_uv_kernel, g_cmd_queue[0], globalThreads, localThreads, &profSecs2, false))
-	{
-		mLog->Log(L"g_uv_kernel #1 failed!\n");
-		return FAILURE;
-	}
-
-	//**************************** Write second half ****************************
-	status = f_clEnqueueWriteBuffer(g_cmd_queue[1], g_inputBuffer[1],
-		CL_FALSE, 0, srcSize2, srcPtr + srcSize1, 0, NULL, NULL);
-	CHECK_OPENCL_ERROR(status, "clEnqueueWriteBuffer() #2 failed");
-
-	// Push the compute for queue 0 & write for queue 1
-	f_clFlush(g_cmd_queue[0]);
-	f_clFlush(g_cmd_queue[1]);
-
-	//**************************** Run over second half ****************************
-	globalThreads[0] = iWidth;
-	globalThreads[1] = iHeight >> 1;
-	globalThreads[1] += globalThreads[1] % 2;
-	//TODO CPU driver will complain.
-	localThreads[1] = localThreads_Max[1];// / (4 + thread_extra_div);
-
-	setKernelArgs(g_y_kernel, g_inputBuffer[1], dstBuffer);
-	setKernelArgs(g_uv_kernel, g_inputBuffer[1], dstBuffer);
-
-	if (flipped)
-	{
-		//may leave empty lines with odd sizes
-		setKernelOffset(g_y_kernel, (iHeight >> 1));
-		int quarterHeight = (iHeight >> 2) + halfHeightFix;
-		setKernelOffset(g_uv_kernel, quarterHeight);
-	}
-	else
-	{
-		setKernelOffset(g_y_kernel, oAlignedWidth * (iHeight >> 1));
-		setKernelOffset(g_uv_kernel, ((oAlignedWidth*iHeight) >> 2));
-	}
-
-	// RGB -> NV12
-	if (runKernel(g_y_kernel, g_cmd_queue[1], globalThreads, localThreads, &profSecs1, false))
-	{
-		mLog->Log(L"g_y_kernel #2 failed!\n");
-		return FAILURE;
-	}
-
-	globalThreads[0] = iWidth / 2;
-	globalThreads[1] = iHeight / 4;
-	//TODO CPU driver will complain.
-	localThreads[1] = localThreads_Max[1];// / (8 + thread_extra_div);
-
-	if (runKernel(g_uv_kernel, g_cmd_queue[1], globalThreads, localThreads, &profSecs2, false))
-	{
-		mLog->Log(L"g_uv_kernel #2 failed!\n");
-		return FAILURE;
-	}
-
-	// Non Blocking Read of 1st half of output data, queue 0
-	//clEnqueueReadBuffer(g_cmd_queue[0], g_outputBuffer,
-	//	CL_FALSE, 0, szHalfBuffer, (void*)&fResult[0], 0, NULL, NULL);
-
-	//**************************** FINISH ****************************
-	// Push the compute for queue 1 & the read for queue 0
-	//f_clFlush(g_cmd_queue[0]);
-	//f_clFlush(g_cmd_queue[1]);
-
-	f_clFinish(g_cmd_queue[0]);
-	f_clFinish(g_cmd_queue[1]);
-
-	g_outputBuffer = NULL;
-
 	return SUCCESS;
 }
 

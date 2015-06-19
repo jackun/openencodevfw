@@ -1,6 +1,5 @@
 //BMP is usually upside-down
 #define FLIP
-//#define USE_STAGGERED
 //TODO RGB_LIMITED stuff is iffy maybe
 //0.062745f <- 16.f / 255.f
 //0.501961f <- 128.f / 255.f
@@ -117,11 +116,7 @@ __kernel void RGBAtoNV12_Y(__global uchar4 *input,
     uchar Y = convert_uchar_sat_rte(dot(Ycoeff, rgba));
 
 #ifdef FLIP
-#ifdef USE_STAGGERED
-    output[id.x + ( ((height*2  - offset)- id.y - 1) ) * alignedWidth] = Y;
-#else
     output[id.x + (height- id.y - 1) * alignedWidth] = Y;
-#endif
 #else
     output[offset + id.x + id.y * alignedWidth] = Y;
 #endif
@@ -138,21 +133,11 @@ __kernel void RGBAtoNV12_UV(__global uchar4 *input,
     
     uint width = get_global_size(0) * 2;
     uint heightHalf = get_global_size(1);
-#ifdef USE_STAGGERED
-    uint height = get_global_size(1) * 4; //half size and half the samples (2*2)
-#else
     uint height = get_global_size(1) * 2;
-#endif
 
 #ifdef FLIP
-#ifdef USE_STAGGERED
-    //id.x + ( ((height*2  - offset)- id.y - 1) ) * alignedWidth
-    uint uv_offset = alignedWidth * height + //Skip Y bytes
-                    ( (heightHalf*2 - offset) - id.y - 1) * alignedWidth + id.x * 2;
-#else
     uint uv_offset = alignedWidth * height + //Skip Y bytes
                     (heightHalf - id.y - 1) * alignedWidth + id.x * 2;
-#endif
 #else
     uint uv_offset = offset + alignedWidth * height + id.y * alignedWidth + id.x * 2;
 #endif
@@ -204,11 +189,7 @@ __kernel void BGRAtoNV12_Y(const __global uchar4 *input,
 
     //should use convert_uchar_sat_rte but that seems to slow shit down
 #ifdef FLIP
-#ifdef USE_STAGGERED
-    output[id.x + ( ((height*2  - offset)- id.y - 1) ) * alignedWidth] = Y;
-#else
     output[id.x + (height- id.y - 1) * alignedWidth] = Y;
-#endif
 #else
     output[offset + id.x + id.y * alignedWidth] = Y;
 #endif
@@ -224,20 +205,11 @@ __kernel void BGRAtoNV12_UV(const __global uchar4 *input,
     uint width = get_global_size(0) * 2;
     uint src = id.x * 2 + width * id.y * 2;
     uint heightHalf = get_global_size(1);
-#ifdef USE_STAGGERED
-    uint height = get_global_size(1) * 4; //half size and half the samples (2*2)
-#else
     uint height = get_global_size(1) * 2;
-#endif
 
 #ifdef FLIP
-#ifdef USE_STAGGERED
-    uint uv_offset = alignedWidth * height + //Skip luma bytes
-                    ( (heightHalf*2 - offset) - id.y - 1) * alignedWidth + id.x * 2;
-#else
     uint uv_offset = alignedWidth * height + //Skip luma bytes
                     (heightHalf - id.y - 1) * alignedWidth + id.x * 2;
-#endif
 #else
     uint uv_offset = offset + alignedWidth * height + id.y * alignedWidth + id.x * 2;
 #endif
@@ -289,11 +261,7 @@ __kernel void RGBtoNV12_Y(__global uchar *input,
     uchar Y = convert_uchar_sat_rte(dot(Ycoeff, rgba));
 
 #ifdef FLIP
-#ifdef USE_STAGGERED
-    output[id.x + ( ((height*2  - offset)- id.y - 1) ) * alignedWidth] = Y;
-#else
     output[id.x + (height- id.y - 1) * alignedWidth] = Y;
-#endif
 #else
     output[offset + id.x + id.y * alignedWidth] = Y;
 #endif
@@ -310,21 +278,11 @@ __kernel void RGBtoNV12_UV(__global uchar *input,
 
     uint width = get_global_size(0) * 2;
     uint heightHalf = get_global_size(1);
-#ifdef USE_STAGGERED
-    uint height = get_global_size(1) * 4; //half size and half the samples (2*2)
-#else
     uint height = get_global_size(1) * 2;
-#endif
 
 #ifdef FLIP
-#ifdef USE_STAGGERED
-    //id.x + ( ((height*2  - offset)- id.y - 1) ) * alignedWidth
-    uint uv_offset = alignedWidth * height + //Skip luma bytes
-                    ( (heightHalf*2 - offset) - id.y - 1) * alignedWidth + id.x * 2;
-#else
     uint uv_offset = alignedWidth * height + //Skip luma bytes
                     (heightHalf - id.y - 1) * alignedWidth + id.x * 2;
-#endif
 #else
     uint uv_offset = offset + alignedWidth * height + id.y * alignedWidth + id.x * 2;
 #endif
@@ -376,11 +334,7 @@ __kernel void BGRtoNV12_Y(__global uchar *input,
     uchar Y = convert_uchar_sat_rte(dot(YcoeffB, bgra));
 
 #ifdef FLIP
-#ifdef USE_STAGGERED
-    output[id.x + ( ((height*2  - offset)- id.y - 1) ) * alignedWidth] = Y;
-#else
     output[id.x + (height- id.y - 1) * alignedWidth] = Y;
-#endif
 #else
     output[offset + id.x + id.y * alignedWidth] = Y;
 #endif
@@ -396,20 +350,11 @@ __kernel void BGRtoNV12_UV(__global uchar *input,
 
     uint width = get_global_size(0) * 2;
     uint heightHalf = get_global_size(1);
-#ifdef USE_STAGGERED
-    uint height = get_global_size(1) * 4; //half size and half the samples (2*2)
-#else
     uint height = get_global_size(1) * 2;
-#endif
 
 #ifdef FLIP
-#ifdef USE_STAGGERED
-    uint uv_offset = alignedWidth * height + //Skip luma bytes
-                    ( (heightHalf*2 - offset) - id.y - 1) * alignedWidth + id.x * 2;
-#else
     uint uv_offset = alignedWidth * height + //Skip luma bytes
                     (heightHalf - id.y - 1) * alignedWidth + id.x * 2;
-#endif
 #else
     uint uv_offset = offset + alignedWidth * height + id.y * alignedWidth + id.x * 2;
 #endif

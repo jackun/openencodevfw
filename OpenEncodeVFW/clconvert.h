@@ -84,11 +84,10 @@ public:
 		return false;
 	}*/
 
-	int convertStaggered(const uint8* srcPtr, cl_mem dstBuffer);
 	int convert(const uint8* srcPtr, cl_mem dstBuffer, bool profile);
 
 	int decodeInit();
-	int encodeInit(bool staggered, cl_mem dstBuffer);
+	int encodeInit(cl_mem dstBuffer);
 	int createKernels(COLORMATRIX matrix);
 
 private:
