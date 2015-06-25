@@ -25,12 +25,13 @@ From [AMD's blog](http://developer.amd.com/community/blog/2014/02/19/introducing
 |             | A10 – 58XX (and other variations) APU | |
 |             | A10 – 68XX APU | |
 | | | |
-| VCE 2.0     | Radeon R9 290x/290 dGPU | SVC (temporal) + B-pictures + DEM improvements |
+| VCE 2.0     | Radeon R9 390x/390/290x/290 dGPU | SVC (temporal) + B-pictures + DEM improvements |
 |             | Radeon R7 260X/260 dGPU | |
 |             | A10 – 7850K APU         | |
 |             | A4-5350, A4-3850, or E1-2650 APU | |
 |             | A4-1200/A6-1450 APU | |
-
+| | | |
+| VCE 3.0     | Radeon R9 Fury/285 dGPU | 4K |
 
 
 ## Installing
@@ -55,6 +56,9 @@ If uninstaller fails its job, manually remove these registry keys:
 	
 and `OPENENCODEVFW.DLL` in %WINDIR%\syswow64 or %WINDIR%\system32
 
+## Recommended usage
+ * 32 bit input format
+ * width/height multiples of 2
 
 ## Some setting descriptions
 
