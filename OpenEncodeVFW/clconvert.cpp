@@ -188,14 +188,11 @@ void clConvert::Cleanup_OpenCL()
 //Unused
 int clConvert::setupCL()
 {
-	for (int i = 0; i < 2; i++)
+	g_cmd_queue = f_clCreateCommandQueue(g_context, deviceID, 0, NULL);
+	if (g_cmd_queue == (cl_command_queue)0)
 	{
-		g_cmd_queue[i] = f_clCreateCommandQueue(g_context, deviceID, 0, NULL);
-		if (g_cmd_queue[i] == (cl_command_queue)0)
-		{
-			Cleanup_OpenCL();
-			return FAILURE;
-		}
+		Cleanup_OpenCL();
+		return FAILURE;
 	}
 	return SUCCESS;
 }
@@ -605,7 +602,7 @@ int clConvert::convert(const uint8* srcPtr, cl_mem dstBuffer, bool profile)
 	cl_event unmapEvent;
 	captureTimeStart(mProf, 5);
 #if 1
-	mapPtr = f_clEnqueueMapBuffer(g_cmd_queue[0],
+	mapPtr = f_clEnqueueMapBuffer(g_cmd_queue,
 		g_inputBuffer[0],
 		//g_pinnedBuffer,
 		CL_TRUE,
@@ -632,14 +629,14 @@ int clConvert::convert(const uint8* srcPtr, cl_mem dstBuffer, bool profile)
 			memcpy(tmpMap, srcPtr, mapStride);
 	}
 
-	status = f_clEnqueueUnmapMemObject(g_cmd_queue[0],
+	status = f_clEnqueueUnmapMemObject(g_cmd_queue,
 		g_inputBuffer[0],
 		//g_pinnedBuffer,
 		mapPtr,
 		0,
 		NULL,
 		&unmapEvent);
-	status = f_clFlush(g_cmd_queue[0]);
+	status = f_clFlush(g_cmd_queue);
 	waitForEventAndRelease(&unmapEvent);
 
 #else
@@ -665,7 +662,7 @@ int clConvert::convert(const uint8* srcPtr, cl_mem dstBuffer, bool profile)
 	setKernelOffset(g_y_kernel, 0);
 	setKernelOffset(g_uv_kernel, 0);*/
 
-	if (runKernel(g_y_kernel, g_cmd_queue[0], globalThreads, NULL/*localThreads*/, &profSecs1, profile))
+	if (runKernel(g_y_kernel, g_cmd_queue, globalThreads, NULL/*localThreads*/, &profSecs1, profile))
 	{
 		mLog->Log(L"kernelY failed!\n");
 		return FAILURE;
@@ -677,14 +674,13 @@ int clConvert::convert(const uint8* srcPtr, cl_mem dstBuffer, bool profile)
 	globalThreads[1] = (iHeight >> 1);
 	//globalThreads[1] -= globalThreads[1] % 2;
 	//mLog->Log(L"GID: %dx%d\n", globalThreads[0],globalThreads[1]);
-	if (runKernel(g_uv_kernel, g_cmd_queue[0], globalThreads, NULL/*localThreads*/, &profSecs2, profile))
+	if (runKernel(g_uv_kernel, g_cmd_queue, globalThreads, NULL/*localThreads*/, &profSecs2, profile))
 	{
 		mLog->Log(L"kernelUV failed!\n");
 		return FAILURE;
 	}
 
-	f_clFinish(g_cmd_queue[0]);
-	//f_clFinish(g_cmd_queue[1]);
+	f_clFinish(g_cmd_queue);
 
 	//average from second sample
 	if (prof2ndPass) {
@@ -695,7 +691,7 @@ int clConvert::convert(const uint8* srcPtr, cl_mem dstBuffer, bool profile)
 		prof2ndPass = true;
 
 	if (hRaw) {
-		mapPtr = f_clEnqueueMapBuffer(g_cmd_queue[0],
+		mapPtr = f_clEnqueueMapBuffer(g_cmd_queue,
 			dstBuffer,
 			CL_TRUE,
 			CL_MAP_READ,
@@ -706,16 +702,16 @@ int clConvert::convert(const uint8* srcPtr, cl_mem dstBuffer, bool profile)
 			&inMapEvt,
 			&status);
 		CHECK_OPENCL_ERROR(status, "clEnqueueMapBuffer() failed");
-		status = f_clFlush(g_cmd_queue[0]);
+		status = f_clFlush(g_cmd_queue);
 		waitForEventAndRelease(&inMapEvt);
 		fwrite(mapPtr, 1, g_output_size, hRaw);
-		status = f_clEnqueueUnmapMemObject(g_cmd_queue[0],
+		status = f_clEnqueueUnmapMemObject(g_cmd_queue,
 			dstBuffer,
 			mapPtr,
 			0,
 			NULL,
 			&unmapEvent);
-		status = f_clFlush(g_cmd_queue[0]);
+		status = f_clFlush(g_cmd_queue);
 		waitForEventAndRelease(&unmapEvent);
 		fclose(hRaw); hRaw = NULL;
 

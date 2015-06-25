@@ -320,15 +320,9 @@ bool CodecInst::createCPUContext(cl_platform_id platform)
 		return false;
 	}
 
-	mCpuCmdQueue[0] = f_clCreateCommandQueue(mCpuCtx, mCpuDev, 0, &err);
+	mCpuCmdQueue = f_clCreateCommandQueue(mCpuCtx, mCpuDev, 0, &err);
 	if(err != CL_SUCCESS) {
 		Log(L"\nCreate command queue #0 failed! Error : %d\n", err);
-		return false;
-	}
-	
-	mCpuCmdQueue[1] = f_clCreateCommandQueue(mCpuCtx, mCpuDev, 0, &err);
-	if(err != CL_SUCCESS) {
-		Log(L"\nCreate command queue #1 failed! Error : %d\n", err);
 		return false;
 	}
 	//clReleaseContext(context);

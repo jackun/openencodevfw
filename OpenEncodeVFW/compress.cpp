@@ -253,14 +253,12 @@ DWORD CodecInst::CompressEnd(){
 
 	if(mCpuCtx)
 	{
-		f_clReleaseCommandQueue(mCpuCmdQueue[0]);
-		f_clReleaseCommandQueue(mCpuCmdQueue[1]);
+		f_clReleaseCommandQueue(mCpuCmdQueue);
 		//f_clReleaseDevice(mCpuDev);//no need
 		f_clReleaseContext(mCpuCtx);
 		mCpuCtx = NULL;
 		mCpuDev = NULL;
-		mCpuCmdQueue[0] = NULL;
-		mCpuCmdQueue[1] = NULL;
+		mCpuCmdQueue = NULL;
 	}
 
 	status = encodeClose(&mEncodeHandle);
@@ -475,19 +473,11 @@ bool CodecInst::encodeOpen(OVEncodeHandle *encodeHandle,OPContextHandle oveConte
 	if(mConfigTable["ProfileKernels"] == 1)
 		prop |= CL_QUEUE_PROFILING_ENABLE;
 
-	encodeHandle->clCmdQueue[0] = f_clCreateCommandQueue((cl_context)oveContext,
+	encodeHandle->clCmdQueue = f_clCreateCommandQueue((cl_context)oveContext,
 									   clDeviceID, prop, &err);
 	if(err != CL_SUCCESS)
 	{
 		Log(L"\nCreate command queue #0 failed! Error : %d\n", err);
-		return false;
-	}
-
-	encodeHandle->clCmdQueue[1] = f_clCreateCommandQueue((cl_context)oveContext,
-									   clDeviceID, prop, &err);
-	if(err != CL_SUCCESS)
-	{
-		Log(L"\nCreate command queue #1 failed! Error : %d\n", err);
 		return false;
 	}
 
@@ -609,7 +599,7 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
 		)
 	)
 	{
-		mapPtr = f_clEnqueueMapBuffer(encodeHandle->clCmdQueue[0],
+		mapPtr = f_clEnqueueMapBuffer(encodeHandle->clCmdQueue,
 					(cl_mem)encodeHandle->inputSurfaces[0],
 					CL_TRUE, //CL_FALSE,
 					CL_MAP_WRITE,
@@ -620,7 +610,7 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
 					&inMapEvt,
 					&status);
 
-		status = f_clFlush(encodeHandle->clCmdQueue[0]);
+		status = f_clFlush(encodeHandle->clCmdQueue);
 		waitForEvent(inMapEvt);
 		status = f_clReleaseEvent(inMapEvt);
 	}
@@ -664,13 +654,13 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
 	if(mapPtr)
 	{
 		cl_event unmapEvent;
-		status = f_clEnqueueUnmapMemObject(encodeHandle->clCmdQueue[0],
+		status = f_clEnqueueUnmapMemObject(encodeHandle->clCmdQueue,
 										(cl_mem)encodeHandle->inputSurfaces[0],
 										mapPtr,
 										0,
 										NULL,
 										&unmapEvent);
-		status = f_clFlush(encodeHandle->clCmdQueue[0]);
+		status = f_clFlush(encodeHandle->clCmdQueue);
 		waitForEvent(unmapEvent);
 		status = f_clReleaseEvent(unmapEvent);
 	}
@@ -890,14 +880,12 @@ bool CodecInst::encodeClose(OVEncodeHandle *encodeHandle)
 		}
 	}
 
-	for(int i=0; i<2; i++) {
-		if(encodeHandle->clCmdQueue[i])
-			err = f_clReleaseCommandQueue(encodeHandle->clCmdQueue[i]);
-		encodeHandle->clCmdQueue[i] = NULL;
-		if(err != CL_SUCCESS)
-		{
-			Log(L"Error releasing Command queue #%d\n", i);
-		}
+	if(encodeHandle->clCmdQueue)
+		err = f_clReleaseCommandQueue(encodeHandle->clCmdQueue);
+	encodeHandle->clCmdQueue = NULL;
+	if(err != CL_SUCCESS)
+	{
+		Log(L"Error releasing Command queue\n");
 	}
 
 	if(encodeHandle->session)

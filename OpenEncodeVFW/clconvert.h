@@ -49,10 +49,10 @@ public:
 	double	profSecs1,profSecs2;
 	bool prof2ndPass;
 
-	clConvert(cl_context ctx, cl_device_id dev, cl_command_queue cmdqueue[2], 
+	clConvert(cl_context ctx, cl_device_id dev, cl_command_queue cmdqueue,
 			int width, int height, unsigned int _bpp_bytes, Logger *lg, OVprofile *prof,
 			bool opt = true, bool rgb = false):
-		g_context(ctx), deviceID(dev),
+		g_context(ctx), g_cmd_queue(cmdqueue), deviceID(dev),
 		iWidth(width), oWidth(width), 
 		iHeight(height), oHeight(height), bpp_bytes(_bpp_bytes),
 		g_y_kernel(NULL), g_uv_kernel(NULL),
@@ -65,8 +65,6 @@ public:
 		localThreads_Max[0] = 1;
 		localThreads_Max[1] = 1;
 
-		g_cmd_queue[0] = cmdqueue[0];
-		g_cmd_queue[1] = cmdqueue[1];
 		g_inputBuffer[0] = NULL;
 		g_inputBuffer[1] = NULL;
 	}
@@ -111,7 +109,7 @@ private:
 	cl_mem				g_inputBuffer[2];
 	cl_mem				g_outputBuffer;
 	cl_context			g_context;
-	cl_command_queue 	g_cmd_queue[2];
+	cl_command_queue 	g_cmd_queue;
 	cl_program			g_program;
 	FILE				*hRaw;
 	OVprofile			*mProf;
