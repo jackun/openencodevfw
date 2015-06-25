@@ -538,8 +538,8 @@ int clConvert::encodeInit(cl_mem dstBuffer)
 	profSecs2 = 0;
 	prof2ndPass = false;
 
-	//TODO Odd framebuffer sizes
-	input_size = iWidth * iHeight * bpp_bytes;
+	//TODO Odd framebuffer sizes. DIBs are DWORD aligned?
+	input_size = iWidth * iHeight * bpp_bytes + ((iWidth * bpp_bytes) % 4) * iHeight;
 	//int align = 4 * bpp_bytes - 1;//or always to 16 bytes (float4)?
 	int align = 256 - 1;//or align to 256 bytes for faster memory access?
 	int input_size_aligned = (input_size + align) & ~align;
@@ -547,6 +547,11 @@ int clConvert::encodeInit(cl_mem dstBuffer)
 	//VCE encoder needs aligned input, adjust pitch here
 	oAlignedWidth = ((iWidth + (256 - 1)) & ~(256 - 1));
 	g_output_size = oAlignedWidth * oHeight * 3 / 2;
+
+	bmpStride = iWidth * bpp_bytes;
+	needsDestriding = (bmpStride % 4 != 0);
+	bmpStride += bmpStride % 4;
+	mapStride = iWidth * bpp_bytes;
 
 	// Create buffer to store the source frame
 	g_inputBuffer[0] = f_clCreateBuffer(
@@ -618,7 +623,14 @@ int clConvert::convert(const uint8* srcPtr, cl_mem dstBuffer, bool profile)
 	//waitForEventAndRelease(&inMapEvt);
 
 	//copy to mapped buffer or clEnqueueWriteBuffer instead
-	memcpy(mapPtr, srcPtr, input_size);
+	if (bpp_bytes == 4 || !needsDestriding)
+		memcpy(mapPtr, srcPtr, input_size);
+	else if (bpp_bytes == 3)
+	{
+		uint8* tmpMap = (uint8*)mapPtr;
+		for (int y = 0; y < iHeight; y++, tmpMap+=mapStride, srcPtr+=bmpStride)
+			memcpy(tmpMap, srcPtr, mapStride);
+	}
 
 	status = f_clEnqueueUnmapMemObject(g_cmd_queue[0],
 		g_inputBuffer[0],

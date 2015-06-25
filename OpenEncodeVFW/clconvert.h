@@ -60,7 +60,7 @@ public:
 		g_program(NULL), mLog(lg), mProf(prof),
 		mOptimize(opt),
 		profSecs1(0), profSecs2(0), prof2ndPass(false),
-		hRaw(NULL), mRGB(rgb)
+		hRaw(NULL), mRGB(rgb), needsDestriding(false)
 	{
 		localThreads_Max[0] = 1;
 		localThreads_Max[1] = 1;
@@ -100,6 +100,8 @@ private:
 	int					oWidth; //output
 	int					oHeight;
 	int					oAlignedWidth;
+	int					bmpStride, mapStride;
+	bool				needsDestriding;
 	unsigned int		bpp_bytes;
 	void				*host_ptr;
 	void				*mapPtr;

@@ -47,7 +47,10 @@ DWORD CodecInst::CompressQuery(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
 	/* We need x2 width/height although it gets aligned to 16 by 16
 	*/
 	if (mWidth % 2 || mHeight % 2)// || mWidth > 1920 || mHeight > 1088) //TODO get max w/h from caps
+	{
+		Log(L"Width/height is not multiple of 2\r\n");
 		return ICERR_BADFORMAT; //Should probably be ICERR_BADIMAGESIZE
+	}
 
 	Log(L"CompressQuery OK \r\n");
 	return (DWORD)ICERR_OK;
@@ -120,7 +123,7 @@ DWORD CodecInst::CompressBegin(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpb
 		mConfigTable["encCropRightOffset"] = (numW * 16 - mWidth) >> 1;
 	}
 	mConfigTable["encNumMBsPerSlice"] = numW * numH;
-	mConfigTable["encVBVBufferSize"] = mConfigTable["encRateControlTargetBitRate"] >> 1; //half of bitrate
+	mConfigTable["encVBVBufferSize"] = mConfigTable["encRateControlTargetBitRate"]; //No effect anyway
 	
 	if(fps_den > 0 && fps_num>0)
 	{
@@ -926,6 +929,7 @@ bool CodecInst::encodeDestroy(OPContextHandle oveContext)
 		err = f_clReleaseContext((cl_context)oveContext);
 		if(err != CL_SUCCESS) 
 		{
+			oveContext = NULL;
 			Log(L"Error releasing cl context\n");
 			return false;
 		}
