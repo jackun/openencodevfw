@@ -1,3 +1,4 @@
+# THIS DOESN'T WORK anymore with newer Catalyst drivers (since 15.7)
 # OpenEncodeVFW
 
 VFW encoder for AMD VCE h264 encoder. Usable with Virtualdub, Dxtory etc.
