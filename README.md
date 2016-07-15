@@ -1,3 +1,4 @@
+# THIS DOESN'T WORK anymore with newer Catalyst drivers (since 15.7)
 # OpenEncodeVFW
 
 VFW encoder for AMD VCE h264 encoder. Usable with Virtualdub, Dxtory etc.
@@ -5,6 +6,8 @@ VFW encoder for AMD VCE h264 encoder. Usable with Virtualdub, Dxtory etc.
 https://github.com/jackun/openencodevfw/archive/master.zip
 
 Extra settings are saved to registry under `HKCU\Software\OpenEncodeVFW`
+
+**As OpenEncode has been deprecated by AMD for a long time already, it appears the support has been finally dropped from Catalyst 15.7**
 
 **You may need to install [MSVC++ 2013 runtimes](http://www.microsoft.com/en-us/download/details.aspx?id=40784).**
 Last [MSVC++2010 commit](https://github.com/jackun/openencodevfw/tree/d6c7c53b61af9447b30d6d6d86be8725801d0fb7).
