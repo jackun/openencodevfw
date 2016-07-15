@@ -84,7 +84,7 @@ void ConvertRGB32toYV12_SSE2(const uint8 *src, uint8 *ydest, uint8 *udest, uint8
 void ff_rgb24toyv12_c(const uint8 *src, uint8 *ydst, uint8 *udst,
 				   uint8 *vdst, int width, int height, int lumStride,
 				   int chromStride, int srcStride, int32 *rgb2yuv);
-void RGBtoNV12 (const uint8 * rgb,
+void BGRtoNV12(const uint8 * rgb,
 	uint8 * yuv,
 	unsigned rgbIncrement,
 	uint8 flip, uint8 isBGR,

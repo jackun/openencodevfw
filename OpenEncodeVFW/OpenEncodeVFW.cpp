@@ -569,11 +569,11 @@ void ConvertRGB24toYV12_SSE2(const uint8 *src, uint8 *ydest, uint8 *udest, uint8
 }
 
 //AviSynth toyv12
-void RGBtoNV12 (const uint8 * rgb,
-	uint8 * yuv,
+void BGRtoNV12(const uint8_t * src,
+	uint8_t * yuv,
 	unsigned rgbIncrement, //bpp in bytes
-	uint8 flip, uint8 isRGB,
-	int srcFrameWidth, int srcFrameHeight, uint32 yuvPitch)
+	uint8_t flip, uint8_t isRGB,
+	int srcFrameWidth, int srcFrameHeight, uint32_t yuvPitch)
 {
 
 	// Colour conversion from
@@ -590,12 +590,12 @@ void RGBtoNV12 (const uint8 * rgb,
 	unsigned int planeSize;
 	unsigned int halfWidth;
 	unsigned int padRGB = 0;
-	unsigned int padYUV =  yuvPitch - srcFrameWidth; //Should work for Y (Y sample per pixel == 1 byte) and UV (2x half sample per pixel == 1 byte)
+	unsigned int padYUV = yuvPitch - srcFrameWidth; //Should work for Y (Y sample per pixel == 1 byte) and UV (2x half sample per pixel == 1 byte)
 
-	uint8 * Y;
-	uint8 * UV;
+	uint8_t * Y;
+	uint8_t * UV;
 	//uint8 * V;
-	int x,y;
+	int x, y;
 
 	planeSize = yuvPitch * srcFrameHeight;
 	halfWidth = yuvPitch >> 1;
@@ -604,22 +604,21 @@ void RGBtoNV12 (const uint8 * rgb,
 	// get pointers to the data
 	Y = yuv;
 	UV = yuv + planeSize;
-	const uint8 * src = rgb;
 
-	long RtoYCoeff = long (65.738  * 256 + 0.5);
-	long GtoYCoeff = long (129.057 * 256 + 0.5);
-	long BtoYCoeff = long (25.064  * 256 + 0.5);
+	long RtoYCoeff = long(65.738 * 256 + 0.5);
+	long GtoYCoeff = long(129.057 * 256 + 0.5);
+	long BtoYCoeff = long(25.064 * 256 + 0.5);
 
-	long RtoUCoeff = long (-37.945 * 256 + 0.5);
-	long GtoUCoeff = long (-74.494 * 256 + 0.5);
-	long BtoUCoeff = long (112.439 * 256 + 0.5);
+	long RtoUCoeff = long(-37.945 * 256 + 0.5);
+	long GtoUCoeff = long(-74.494 * 256 + 0.5);
+	long BtoUCoeff = long(112.439 * 256 + 0.5);
 
-	long RtoVCoeff = long (112.439 * 256 + 0.5);
-	long GtoVCoeff = long (-94.154 * 256 + 0.5);
-	long BtoVCoeff = long (-18.285 * 256 + 0.5);
+	long RtoVCoeff = long(112.439 * 256 + 0.5);
+	long GtoVCoeff = long(-94.154 * 256 + 0.5);
+	long BtoVCoeff = long(-18.285 * 256 + 0.5);
 
-	uint8 U00, U01, U10, U11;
-	uint8 V00, V01, V10, V11;
+	uint32_t U00, U01, U10, U11;
+	uint32_t V00, V01, V10, V11;
 
 #define rgbTo(s, x, y) s += x + y * rgbPitch * rgbIncrement
 #define rgbAt(s, x, y) (*(s + x + y * rgbPitch * rgbIncrement))
@@ -628,66 +627,67 @@ void RGBtoNV12 (const uint8 * rgb,
 
 	//#pragma omp parallel
 	{
-	////#pragma omp section
-	{
-		//Y plane
-		//#pragma omp parallel for 
-		for ( y = srcFrameHeight - 1; y >= 0; y--)
+		////#pragma omp section
 		{
-			uint8 *lY;
-			if(!!flip)
-				lY = Y + yuvPitch * (srcFrameHeight - y) + 1 /* ?? */;
-			else
-				lY = Y + yuvPitch * y;//, src += padRGB
-			const uint8 *lsrc = rgb + (srcFrameWidth*(y)*rgbIncrement);
-			for ( x = srcFrameWidth ; x > 0; x--)
+			//Y plane
+			//#pragma omp parallel for 
+			for (y = 0; y < srcFrameHeight; y++)
 			{
-				lsrc += rgbIncrement;
-				// No need to saturate between 16 and 235
-				*(lY++) = 16 + ((32768 + RtoYCoeff * lsrc[0 + isBGR*2] + GtoYCoeff * lsrc[1] + BtoYCoeff * lsrc[2 - isBGR*2]) >> 16);
+				uint8_t *lY;
+				if (!!flip)
+					lY = Y + yuvPitch * (srcFrameHeight - y - 1);
+				else
+					lY = Y + yuvPitch * y;//, src += padRGB
+				const uint8_t *lsrc = src + (srcFrameWidth*(y)*rgbIncrement);
+				for (x = srcFrameWidth; x > 0; x--)
+				{
+					// No need to saturate between 16 and 235
+					*(lY++) = uint8_t(16 + ((32768 + RtoYCoeff * lsrc[0 + isBGR * 2] + GtoYCoeff * lsrc[1] + BtoYCoeff * lsrc[2 - isBGR * 2]) >> 16));
+					lsrc += rgbIncrement;
+				}
 			}
 		}
-	}
-	
-	//rgbTo(src, 0,-1); //rgbTo(src, 0, -srcFrameHeight); //.to(0, -src.height); //we return to the beginning of the plane.
 
-	//U and V planes
-	
-	//#pragma omp for 
-	for (y = 0; y < (srcFrameHeight>>1); y++)
-	{
-		//UV += padYUV, src+=rgbIncrement*rgbPitch
-		uint8 *lUV;
-		if(!!flip)
-			lUV = UV + yuvPitch * ((srcFrameHeight>>1) - y - 1);
-		else
-			lUV = UV + yuvPitch * y;
+		//rgbTo(src, 0,-1); //rgbTo(src, 0, -srcFrameHeight); //.to(0, -src.height); //we return to the beginning of the plane.
 
-		const uint8 *lsrc = rgb + (srcFrameWidth*(y*2)*rgbIncrement);
-		
-		for (x = 0; x < (srcFrameWidth>>1); x++)
+		//U and V planes
+
+		//#pragma omp for 
+		for (y = 0; y < (srcFrameHeight >> 1); y++)
 		{
-			lUV += 2;
-			lsrc += 2 * rgbIncrement;
+			//UV += padYUV, src+=rgbIncrement*rgbPitch
+			uint8_t *lUV;
+			if (!!flip)
+				lUV = UV + yuvPitch * ((srcFrameHeight >> 1) - y - 1);
+			else
+				lUV = UV + yuvPitch * y;
 
-			// No need to saturate between 16 and 240
-			// Sample pixels from 2x2 box
-			U00 = 128 + ((32768 + RtoUCoeff * lsrc[0 + isBGR*2] + GtoUCoeff * lsrc[1] + BtoUCoeff * lsrc[2 - isBGR*2]) >> 16);
-			U01 = 128 + ((32768 + RtoUCoeff * lsrc[0+rgbIncrement+isBGR*2] + GtoUCoeff * lsrc[1+rgbIncrement] + BtoUCoeff * lsrc[2+rgbIncrement-isBGR*2]) >> 16);
-			U10 = 128 + ((32768 + RtoUCoeff * rgbAt(lsrc, 0+isBGR*2, 1) + GtoUCoeff * rgbAt(lsrc, 1, 1) + BtoUCoeff * rgbAt(lsrc, 2-isBGR*2, 1)) >> 16);
-			U11 = 128 + ((32768 + RtoUCoeff * rgbAt(lsrc, 0+rgbIncrement+isBGR*2, 1) + GtoUCoeff * (rgbAt(lsrc, 1+rgbIncrement, 1)) + BtoUCoeff * rgbAt(lsrc, 2+rgbIncrement-isBGR*2, 1)) >> 16);
-			lUV[0] = (2 + U00 + U01 + U10 + U11) >> 2;
+			const uint8_t *lsrc = src + (srcFrameWidth*(y * 2)*rgbIncrement);
 
-			V00 = 128 + ((32768 + RtoVCoeff * lsrc[0+isBGR*2] + GtoVCoeff * lsrc[1] + BtoVCoeff * lsrc[2-isBGR*2]) >> 16);
-			V01 = 128 + ((32768 + RtoVCoeff * lsrc[0+rgbIncrement+isBGR*2] + GtoVCoeff * lsrc[1+rgbIncrement] + BtoVCoeff * lsrc[2+rgbIncrement-isBGR*2]) >> 16);
-			V10 = 128 + ((32768 + RtoVCoeff * rgbAt(lsrc, 0+isBGR*2, 1) + GtoVCoeff * rgbAt(lsrc, 1, 1) + BtoVCoeff * rgbAt(lsrc, 2-isBGR*2, 1)) >> 16);
-			V11 = 128 + ((32768 + RtoVCoeff * rgbAt(lsrc, 0+rgbIncrement+isBGR*2, 1) + GtoVCoeff * rgbAt(lsrc, 1+rgbIncrement, 1) + BtoVCoeff * rgbAt(lsrc, 2+rgbIncrement-isBGR*2, 1)) >> 16);
-			lUV[1] = (2 + V00 + V01 + V10 + V11) >> 2;
+			for (x = 0; x < (srcFrameWidth >> 1); x++)
+			{
 
-			//UV[0] = -0.14713f * src[0] - 0.28886f * src[1] + 0.436f * src[2] + 128;
-			//UV[1] = 0.615f * src[0] - 0.51499f * src[1] - 0.10001f * src[2] + 128;
+				// No need to saturate between 16 and 240
+				// Sample pixels from 2x2 box
+				U00 = 128 + ((32768 + RtoUCoeff * lsrc[0 + isBGR * 2] + GtoUCoeff * lsrc[1] + BtoUCoeff * lsrc[2 - isBGR * 2]) >> 16);
+				U01 = 128 + ((32768 + RtoUCoeff * lsrc[0 + rgbIncrement + isBGR * 2] + GtoUCoeff * lsrc[1 + rgbIncrement] + BtoUCoeff * lsrc[2 + rgbIncrement - isBGR * 2]) >> 16);
+				U10 = 128 + ((32768 + RtoUCoeff * rgbAt(lsrc, 0 + isBGR * 2, 1) + GtoUCoeff * rgbAt(lsrc, 1, 1) + BtoUCoeff * rgbAt(lsrc, 2 - isBGR * 2, 1)) >> 16);
+				U11 = 128 + ((32768 + RtoUCoeff * rgbAt(lsrc, 0 + rgbIncrement + isBGR * 2, 1) + GtoUCoeff * (rgbAt(lsrc, 1 + rgbIncrement, 1)) + BtoUCoeff * rgbAt(lsrc, 2 + rgbIncrement - isBGR * 2, 1)) >> 16);
+				lUV[0] = uint8_t((2 + U00 + U01 + U10 + U11) >> 2);
+
+				V00 = 128 + ((32768 + RtoVCoeff * lsrc[0 + isBGR * 2] + GtoVCoeff * lsrc[1] + BtoVCoeff * lsrc[2 - isBGR * 2]) >> 16);
+				V01 = 128 + ((32768 + RtoVCoeff * lsrc[0 + rgbIncrement + isBGR * 2] + GtoVCoeff * lsrc[1 + rgbIncrement] + BtoVCoeff * lsrc[2 + rgbIncrement - isBGR * 2]) >> 16);
+				V10 = 128 + ((32768 + RtoVCoeff * rgbAt(lsrc, 0 + isBGR * 2, 1) + GtoVCoeff * rgbAt(lsrc, 1, 1) + BtoVCoeff * rgbAt(lsrc, 2 - isBGR * 2, 1)) >> 16);
+				V11 = 128 + ((32768 + RtoVCoeff * rgbAt(lsrc, 0 + rgbIncrement + isBGR * 2, 1) + GtoVCoeff * rgbAt(lsrc, 1 + rgbIncrement, 1) + BtoVCoeff * rgbAt(lsrc, 2 + rgbIncrement - isBGR * 2, 1)) >> 16);
+				lUV[1] = uint8_t((2 + V00 + V01 + V10 + V11) >> 2);
+
+				lUV += 2;
+				lsrc += 2 * rgbIncrement;
+
+				//UV[0] = -0.14713f * src[0] - 0.28886f * src[1] + 0.436f * src[2] + 128;
+				//UV[1] = 0.615f * src[0] - 0.51499f * src[1] - 0.10001f * src[2] + 128;
+			}
 		}
-	}
 	}
 
 }

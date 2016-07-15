@@ -633,7 +633,7 @@ bool CodecInst::encodeProcess(OVEncodeHandle *encodeHandle, const uint8 *inData,
 			status = f_clFlush(encodeHandle->clCmdQueue[0]);*/
 		}
 		else
-			RGBtoNV12 (inData, (uint8 *)mapPtr, mFormat/8, 1, mConfigTable["SwitchByteOrder"], pConfig->width, pConfig->height, mAlignedSurfaceWidth);
+			BGRtoNV12(inData, (uint8 *)mapPtr, mFormat / 8, 1, mConfigTable["SwitchByteOrder"], pConfig->width, pConfig->height, mAlignedSurfaceWidth);
 	}
 	else if(
 		(mFormat == 12 || mFormat == 16) && 
